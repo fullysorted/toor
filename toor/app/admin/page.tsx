@@ -1,7 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { getBrandConfig, applyBrandConfig, getEntrants, saveEntrants, getWaypoints } from "@/lib/store";
+import { useState, useEffect, useRef } from "react";
+import {
+  getBrandConfig,
+  applyBrandConfig,
+  saveBrandConfig,
+  getEntrants,
+  saveEntrants,
+  getWaypoints,
+  saveWaypoints,
+  getSponsors,
+  saveSponsors,
+  getProgramPages,
+  saveProgramPages,
+  getClasses,
+} from "@/lib/store";
 
 // ─── Mock Stats ──────────────────────────────────────────────────────────────
 
@@ -39,6 +52,24 @@ export default function AdminPage() {
   const [notificationSent, setNotificationSent] = useState(false);
   const [editBrand, setEditBrand] = useState<any>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [classes, setClasses] = useState<any[]>([]);
+  const [sponsors, setSponsors] = useState<any[]>([]);
+  const [programPages, setProgramPages] = useState<any[]>([]);
+  const [addingEntrant, setAddingEntrant] = useState(false);
+  const [editingEntrantId, setEditingEntrantId] = useState<string | null>(null);
+  const [editingWaypointIdx, setEditingWaypointIdx] = useState<number | null>(null);
+  const [addingWaypoint, setAddingWaypoint] = useState(false);
+  const [editingSponsorId, setEditingSponsorId] = useState<string | null>(null);
+  const [addingSponsor, setAddingSponsor] = useState(false);
+  const [editingPageId, setEditingPageId] = useState<string | null>(null);
+  const [addingPage, setAddingPage] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    type: "entrant" | "waypoint" | "sponsor" | "page";
+    id: string | number;
+  } | null>(null);
+  const waypointFileInputRef = useRef<HTMLInputElement>(null);
+  const sponsorFileInputRef = useRef<HTMLInputElement>(null);
+  const pageFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // Load Google Fonts
@@ -55,6 +86,9 @@ export default function AdminPage() {
     setEditBrand({ ...config });
     setEntrants(getEntrants());
     setWaypoints(getWaypoints());
+    setClasses(getClasses());
+    setSponsors(getSponsors());
+    setProgramPages(getProgramPages());
   }, []);
 
   const handleLogin = () => {
@@ -233,12 +267,40 @@ export default function AdminPage() {
     );
   }
 
+  // ── Helper: Convert file to base64 ──
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let { width, height } = img;
+          if (width > 600) {
+            height = (height * 600) / width;
+            width = 600;
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx?.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL("image/jpeg", 0.9));
+        };
+        img.onerror = () => reject(new Error("Image load failed"));
+        img.src = result;
+      };
+      reader.onerror = () => reject(new Error("File read failed"));
+      reader.readAsDataURL(file);
+    });
+  };
+
   // ── Admin Dashboard ──
   const tabs = [
     { key: "dashboard", label: "Dashboard" },
     { key: "entrants", label: "Entrants" },
-    { key: "notifications", label: "Notify" },
     { key: "tour", label: "Tour" },
+    { key: "program", label: "Program" },
     { key: "brand", label: "Brand" },
   ];
 
@@ -459,19 +521,57 @@ export default function AdminPage() {
         {/* ── Entrants Tab ── */}
         {activeTab === "entrants" && (
           <div>
-            <p
+            <div
               style={{
-                fontSize: 10,
-                fontWeight: 600,
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                color: "var(--text)",
-                opacity: 0.35,
-                marginBottom: 14,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 20,
               }}
             >
-              {entrants.length} Registered Entrants
-            </p>
+              <p
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  color: "var(--text)",
+                  opacity: 0.35,
+                  margin: 0,
+                }}
+              >
+                {entrants.length} Registered Entrants
+              </p>
+              <button
+                onClick={() => setAddingEntrant(!addingEntrant)}
+                style={{
+                  padding: "8px 14px",
+                  backgroundColor: addingEntrant ? "rgba(27,42,74,0.1)" : "var(--accent)",
+                  color: addingEntrant ? "var(--text)" : "var(--primary)",
+                  border: "none",
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "var(--body-font)",
+                }}
+              >
+                {addingEntrant ? "Cancel" : "Add Entrant"}
+              </button>
+            </div>
+
+            {addingEntrant && (
+              <EntrantForm
+                onSave={(entrant) => {
+                  const newEntrants = [...entrants, entrant];
+                  setEntrants(newEntrants);
+                  saveEntrants(newEntrants);
+                  setAddingEntrant(false);
+                }}
+                classes={classes}
+              />
+            )}
+
             <div style={{ overflowX: "auto" }}>
               <table
                 style={{
@@ -483,7 +583,7 @@ export default function AdminPage() {
               >
                 <thead>
                   <tr style={{ borderBottom: "2px solid rgba(27, 42, 74, 0.1)" }}>
-                    {["#", "Entrant", "Car", "Class", "Status"].map((h) => (
+                    {["#", "Entrant", "Car", "Class", "Status", "Actions"].map((h) => (
                       <th
                         key={h}
                         style={{
@@ -577,208 +677,636 @@ export default function AdminPage() {
                           {ent.status}
                         </button>
                       </td>
+                      <td style={{ padding: "12px 8px", whiteSpace: "nowrap" }}>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button
+                            onClick={() =>
+                              editingEntrantId === ent.user_id
+                                ? setEditingEntrantId(null)
+                                : setEditingEntrantId(ent.user_id)
+                            }
+                            style={{
+                              padding: "4px 8px",
+                              backgroundColor: "rgba(201, 168, 76, 0.1)",
+                              color: "var(--accent)",
+                              border: "none",
+                              borderRadius: 4,
+                              fontSize: 10,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              fontFamily: "var(--body-font)",
+                            }}
+                          >
+                            {editingEntrantId === ent.user_id ? "Done" : "Edit"}
+                          </button>
+                          <button
+                            onClick={() =>
+                              setDeleteConfirm({
+                                type: "entrant",
+                                id: ent.user_id,
+                              })
+                            }
+                            style={{
+                              padding: "4px 8px",
+                              backgroundColor: "rgba(229, 115, 115, 0.1)",
+                              color: "#D32F2F",
+                              border: "none",
+                              borderRadius: 4,
+                              fontSize: 10,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              fontFamily: "var(--body-font)",
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+
+            {deleteConfirm?.type === "entrant" && (
+              <ConfirmDialog
+                message="Delete this entrant? This action cannot be undone."
+                onConfirm={() => {
+                  const updated = entrants.filter(
+                    (e) => e.user_id !== deleteConfirm.id
+                  );
+                  setEntrants(updated);
+                  saveEntrants(updated);
+                  setDeleteConfirm(null);
+                }}
+                onCancel={() => setDeleteConfirm(null)}
+              />
+            )}
+
+            {editingEntrantId && (
+              <EntrantForm
+                entrant={entrants.find((e) => e.user_id === editingEntrantId)}
+                onSave={(updated) => {
+                  const newEntrants = entrants.map((e) =>
+                    e.user_id === editingEntrantId ? updated : e
+                  );
+                  setEntrants(newEntrants);
+                  saveEntrants(newEntrants);
+                  setEditingEntrantId(null);
+                }}
+                classes={classes}
+              />
+            )}
           </div>
         )}
 
-        {/* ── Notifications Tab ── */}
-        {activeTab === "notifications" && (
-          <div>
-            <h3
-              style={{
-                fontFamily: "var(--heading-font)",
-                fontSize: 22,
-                fontWeight: 400,
-                color: "var(--primary)",
-                margin: "0 0 6px",
-              }}
-            >
-              Push Notification
-            </h3>
-            <p
-              style={{
-                fontSize: 13,
-                color: "var(--text)",
-                opacity: 0.45,
-                marginBottom: 20,
-              }}
-            >
-              Send a message to all {entrants.length} registered entrants.
-            </p>
-            <textarea
-              value={notificationText}
-              onChange={(e) => setNotificationText(e.target.value)}
-              placeholder="e.g. Reminder: Tour d'Elegance departs at 7:00 AM sharp from Prospect Street. Please stage by 6:30 AM."
-              rows={4}
-              style={{
-                width: "100%",
-                padding: "14px 16px",
-                border: "1px solid rgba(27, 42, 74, 0.12)",
-                borderRadius: 8,
-                fontFamily: "var(--body-font)",
-                fontSize: 14,
-                color: "var(--text)",
-                resize: "vertical",
-                outline: "none",
-                lineHeight: 1.5,
-                backgroundColor: "#FFFFFF",
-              }}
-            />
-            <button
-              onClick={handleSendNotification}
-              disabled={!notificationText.trim() || notificationSent}
-              style={{
-                marginTop: 14,
-                width: "100%",
-                padding: "14px",
-                backgroundColor: notificationSent
-                  ? "#4CAF50"
-                  : notificationText.trim()
-                    ? "var(--accent)"
-                    : "rgba(27, 42, 74, 0.08)",
-                color: notificationSent
-                  ? "#FFFFFF"
-                  : notificationText.trim()
-                    ? "var(--primary)"
-                    : "var(--text)",
-                border: "none",
-                borderRadius: 8,
-                fontFamily: "var(--body-font)",
-                fontSize: 14,
-                fontWeight: 600,
-                cursor:
-                  notificationText.trim() && !notificationSent
-                    ? "pointer"
-                    : "default",
-                opacity: notificationText.trim() || notificationSent ? 1 : 0.4,
-                transition: "all 0.3s",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-              }}
-            >
-              {notificationSent ? (
-                <>
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                  >
-                    <path d="M5 12l5 5L20 7" />
-                  </svg>
-                  Sent to {entrants.length} Entrants
-                </>
-              ) : (
-                "Send to All Entrants"
-              )}
-            </button>
-          </div>
-        )}
 
         {/* ── Tour Tab ── */}
         {activeTab === "tour" && (
           <div>
-            <h3
+            <div
               style={{
-                fontFamily: "var(--heading-font)",
-                fontSize: 22,
-                fontWeight: 400,
-                color: "var(--primary)",
-                margin: "0 0 6px",
-              }}
-            >
-              Tour Route Editor
-            </h3>
-            <p
-              style={{
-                fontSize: 13,
-                color: "var(--text)",
-                opacity: 0.45,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
                 marginBottom: 20,
               }}
             >
-              Reorder waypoints for the Tour d'Elegance route.
-            </p>
-            {waypoints.map((wp, i) => (
-              <div
-                key={i}
+              <h3
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  padding: "14px 16px",
-                  marginBottom: 8,
-                  backgroundColor: "#FFFFFF",
-                  border: "1px solid rgba(27, 42, 74, 0.06)",
-                  borderRadius: 8,
+                  fontFamily: "var(--heading-font)",
+                  fontSize: 22,
+                  fontWeight: 400,
+                  color: "var(--primary)",
+                  margin: 0,
                 }}
               >
-                {/* Drag Handle */}
-                <div style={{ cursor: "grab", opacity: 0.25, flexShrink: 0 }}>
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="var(--text)"
-                  >
-                    <circle cx="8" cy="6" r="1.5" />
-                    <circle cx="16" cy="6" r="1.5" />
-                    <circle cx="8" cy="12" r="1.5" />
-                    <circle cx="16" cy="12" r="1.5" />
-                    <circle cx="8" cy="18" r="1.5" />
-                    <circle cx="16" cy="18" r="1.5" />
-                  </svg>
-                </div>
-                {/* Stop Number */}
-                <div
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    backgroundColor: "var(--accent)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: "var(--primary)",
-                    flexShrink: 0,
-                  }}
-                >
-                  {wp.stop}
-                </div>
-                {/* Content */}
-                <div style={{ flex: 1 }}>
+                Tour Stops
+              </h3>
+              <button
+                onClick={() => setAddingWaypoint(!addingWaypoint)}
+                style={{
+                  padding: "8px 14px",
+                  backgroundColor: addingWaypoint ? "rgba(27,42,74,0.1)" : "var(--accent)",
+                  color: addingWaypoint ? "var(--text)" : "var(--primary)",
+                  border: "none",
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "var(--body-font)",
+                }}
+              >
+                {addingWaypoint ? "Cancel" : "Add Stop"}
+              </button>
+            </div>
+
+            {addingWaypoint && (
+              <WaypointForm
+                onSave={(waypoint) => {
+                  const newWaypoints = [...waypoints, waypoint];
+                  setWaypoints(newWaypoints);
+                  saveWaypoints(newWaypoints);
+                  setAddingWaypoint(false);
+                }}
+                waypointFileInputRef={waypointFileInputRef}
+                fileToBase64={fileToBase64}
+              />
+            )}
+
+            {waypoints.map((wp, i) => (
+              <div key={i}>
+                {editingWaypointIdx === i ? (
+                  <WaypointForm
+                    waypoint={wp}
+                    onSave={(updated) => {
+                      const newWaypoints = waypoints.map((w, idx) =>
+                        idx === i ? updated : w
+                      );
+                      setWaypoints(newWaypoints);
+                      saveWaypoints(newWaypoints);
+                      setEditingWaypointIdx(null);
+                    }}
+                    waypointFileInputRef={waypointFileInputRef}
+                    fileToBase64={fileToBase64}
+                  />
+                ) : (
                   <div
                     style={{
-                      fontSize: 14,
-                      fontWeight: 500,
-                      color: "var(--primary)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "14px 16px",
+                      marginBottom: 8,
+                      backgroundColor: "#FFFFFF",
+                      border: "1px solid rgba(27, 42, 74, 0.06)",
+                      borderRadius: 8,
                     }}
                   >
-                    {wp.name}
+                    <div
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: "50%",
+                        backgroundColor: "var(--accent)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: "var(--primary)",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {i + 1}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div
+                        style={{
+                          fontSize: 14,
+                          fontWeight: 500,
+                          color: "var(--primary)",
+                        }}
+                      >
+                        {wp.name}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "var(--text)",
+                          opacity: 0.4,
+                        }}
+                      >
+                        {wp.time} · {wp.location}
+                      </div>
+                      {wp.photo && (
+                        <img
+                          src={wp.photo}
+                          alt={wp.name}
+                          style={{
+                            marginTop: 8,
+                            maxWidth: 200,
+                            maxHeight: 100,
+                            borderRadius: 4,
+                          }}
+                        />
+                      )}
+                    </div>
+                    <div style={{ display: "flex", gap: 6, flexDirection: "column", flexShrink: 0 }}>
+                      <button
+                        onClick={() => setEditingWaypointIdx(i)}
+                        style={{
+                          padding: "4px 8px",
+                          backgroundColor: "rgba(201, 168, 76, 0.1)",
+                          color: "var(--accent)",
+                          border: "none",
+                          borderRadius: 4,
+                          fontSize: 10,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          fontFamily: "var(--body-font)",
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() =>
+                          setDeleteConfirm({
+                            type: "waypoint",
+                            id: i,
+                          })
+                        }
+                        style={{
+                          padding: "4px 8px",
+                          backgroundColor: "rgba(229, 115, 115, 0.1)",
+                          color: "#D32F2F",
+                          border: "none",
+                          borderRadius: 4,
+                          fontSize: 10,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          fontFamily: "var(--body-font)",
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: "var(--text)",
-                      opacity: 0.4,
-                    }}
-                  >
-                    {wp.time} · {wp.location}
-                  </div>
-                </div>
+                )}
               </div>
             ))}
+
+            {deleteConfirm?.type === "waypoint" && (
+              <ConfirmDialog
+                message="Delete this tour stop? This action cannot be undone."
+                onConfirm={() => {
+                  const updated = waypoints.filter(
+                    (_, idx) => idx !== deleteConfirm.id
+                  );
+                  setWaypoints(updated);
+                  saveWaypoints(updated);
+                  setDeleteConfirm(null);
+                }}
+                onCancel={() => setDeleteConfirm(null)}
+              />
+            )}
+          </div>
+        )}
+
+        {/* ── Program Tab ── */}
+        {activeTab === "program" && (
+          <div>
+            {/* Sponsors Section */}
+            <div style={{ marginBottom: 40 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 20,
+                }}
+              >
+                <h3
+                  style={{
+                    fontFamily: "var(--heading-font)",
+                    fontSize: 20,
+                    fontWeight: 400,
+                    color: "var(--primary)",
+                    margin: 0,
+                  }}
+                >
+                  Sponsors
+                </h3>
+                <button
+                  onClick={() => setAddingSponsor(!addingSponsor)}
+                  style={{
+                    padding: "8px 14px",
+                    backgroundColor: addingSponsor ? "rgba(27,42,74,0.1)" : "var(--accent)",
+                    color: addingSponsor ? "var(--text)" : "var(--primary)",
+                    border: "none",
+                    borderRadius: 6,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    fontFamily: "var(--body-font)",
+                  }}
+                >
+                  {addingSponsor ? "Cancel" : "Add Sponsor"}
+                </button>
+              </div>
+
+              {addingSponsor && (
+                <SponsorForm
+                  onSave={(sponsor) => {
+                    const newSponsors = [...sponsors, sponsor];
+                    setSponsors(newSponsors);
+                    saveSponsors(newSponsors);
+                    setAddingSponsor(false);
+                  }}
+                  fileToBase64={fileToBase64}
+                  sponsorFileInputRef={sponsorFileInputRef}
+                />
+              )}
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {sponsors.map((sponsor) => (
+                  <div key={sponsor.id}>
+                    {editingSponsorId === sponsor.id ? (
+                      <SponsorForm
+                        sponsor={sponsor}
+                        onSave={(updated) => {
+                          const newSponsors = sponsors.map((s) =>
+                            s.id === sponsor.id ? updated : s
+                          );
+                          setSponsors(newSponsors);
+                          saveSponsors(newSponsors);
+                          setEditingSponsorId(null);
+                        }}
+                        fileToBase64={fileToBase64}
+                        sponsorFileInputRef={sponsorFileInputRef}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "14px 16px",
+                          backgroundColor: "#FFFFFF",
+                          border: "1px solid rgba(27, 42, 74, 0.06)",
+                          borderRadius: 8,
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <div
+                            style={{
+                              fontSize: 14,
+                              fontWeight: 500,
+                              color: "var(--primary)",
+                            }}
+                          >
+                            {sponsor.name}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: "var(--text)",
+                              opacity: 0.4,
+                            }}
+                          >
+                            {sponsor.tier}
+                            {sponsor.website && ` · ${sponsor.website}`}
+                          </div>
+                          {sponsor.logo && (
+                            <img
+                              src={sponsor.logo}
+                              alt={sponsor.name}
+                              style={{
+                                marginTop: 8,
+                                maxWidth: 120,
+                                maxHeight: 60,
+                                borderRadius: 4,
+                              }}
+                            />
+                          )}
+                        </div>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button
+                            onClick={() => setEditingSponsorId(sponsor.id)}
+                            style={{
+                              padding: "4px 8px",
+                              backgroundColor: "rgba(201, 168, 76, 0.1)",
+                              color: "var(--accent)",
+                              border: "none",
+                              borderRadius: 4,
+                              fontSize: 10,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              fontFamily: "var(--body-font)",
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() =>
+                              setDeleteConfirm({
+                                type: "sponsor",
+                                id: sponsor.id,
+                              })
+                            }
+                            style={{
+                              padding: "4px 8px",
+                              backgroundColor: "rgba(229, 115, 115, 0.1)",
+                              color: "#D32F2F",
+                              border: "none",
+                              borderRadius: 4,
+                              fontSize: 10,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              fontFamily: "var(--body-font)",
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {deleteConfirm?.type === "sponsor" && (
+                <ConfirmDialog
+                  message="Delete this sponsor? This action cannot be undone."
+                  onConfirm={() => {
+                    const updated = sponsors.filter(
+                      (s) => s.id !== deleteConfirm.id
+                    );
+                    setSponsors(updated);
+                    saveSponsors(updated);
+                    setDeleteConfirm(null);
+                  }}
+                  onCancel={() => setDeleteConfirm(null)}
+                />
+              )}
+            </div>
+
+            {/* Program Pages Section */}
+            <div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 20,
+                }}
+              >
+                <h3
+                  style={{
+                    fontFamily: "var(--heading-font)",
+                    fontSize: 20,
+                    fontWeight: 400,
+                    color: "var(--primary)",
+                    margin: 0,
+                  }}
+                >
+                  Program Pages
+                </h3>
+                <button
+                  onClick={() => setAddingPage(!addingPage)}
+                  style={{
+                    padding: "8px 14px",
+                    backgroundColor: addingPage ? "rgba(27,42,74,0.1)" : "var(--accent)",
+                    color: addingPage ? "var(--text)" : "var(--primary)",
+                    border: "none",
+                    borderRadius: 6,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    fontFamily: "var(--body-font)",
+                  }}
+                >
+                  {addingPage ? "Cancel" : "Add Page"}
+                </button>
+              </div>
+
+              {addingPage && (
+                <PageForm
+                  onSave={(page) => {
+                    const newPages = [...programPages, page];
+                    setProgramPages(newPages);
+                    saveProgramPages(newPages);
+                    setAddingPage(false);
+                  }}
+                  fileToBase64={fileToBase64}
+                  pageFileInputRef={pageFileInputRef}
+                />
+              )}
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {programPages.map((page) => (
+                  <div key={page.id}>
+                    {editingPageId === page.id ? (
+                      <PageForm
+                        page={page}
+                        onSave={(updated) => {
+                          const newPages = programPages.map((p) =>
+                            p.id === page.id ? updated : p
+                          );
+                          setProgramPages(newPages);
+                          saveProgramPages(newPages);
+                          setEditingPageId(null);
+                        }}
+                        fileToBase64={fileToBase64}
+                        pageFileInputRef={pageFileInputRef}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "flex-start",
+                          padding: "14px 16px",
+                          backgroundColor: "#FFFFFF",
+                          border: "1px solid rgba(27, 42, 74, 0.06)",
+                          borderRadius: 8,
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <div
+                            style={{
+                              fontSize: 14,
+                              fontWeight: 500,
+                              color: "var(--primary)",
+                            }}
+                          >
+                            {page.title}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: "var(--text)",
+                              opacity: 0.5,
+                              marginTop: 4,
+                              lineHeight: 1.4,
+                            }}
+                          >
+                            {page.body.substring(0, 100)}
+                            {page.body.length > 100 ? "..." : ""}
+                          </div>
+                          {page.photo && (
+                            <img
+                              src={page.photo}
+                              alt={page.title}
+                              style={{
+                                marginTop: 8,
+                                maxWidth: 150,
+                                maxHeight: 80,
+                                borderRadius: 4,
+                              }}
+                            />
+                          )}
+                        </div>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button
+                            onClick={() => setEditingPageId(page.id)}
+                            style={{
+                              padding: "4px 8px",
+                              backgroundColor: "rgba(201, 168, 76, 0.1)",
+                              color: "var(--accent)",
+                              border: "none",
+                              borderRadius: 4,
+                              fontSize: 10,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              fontFamily: "var(--body-font)",
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() =>
+                              setDeleteConfirm({
+                                type: "page",
+                                id: page.id,
+                              })
+                            }
+                            style={{
+                              padding: "4px 8px",
+                              backgroundColor: "rgba(229, 115, 115, 0.1)",
+                              color: "#D32F2F",
+                              border: "none",
+                              borderRadius: 4,
+                              fontSize: 10,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              fontFamily: "var(--body-font)",
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {deleteConfirm?.type === "page" && (
+                <ConfirmDialog
+                  message="Delete this program page? This action cannot be undone."
+                  onConfirm={() => {
+                    const updated = programPages.filter(
+                      (p) => p.id !== deleteConfirm.id
+                    );
+                    setProgramPages(updated);
+                    saveProgramPages(updated);
+                    setDeleteConfirm(null);
+                  }}
+                  onCancel={() => setDeleteConfirm(null)}
+                />
+              )}
+            </div>
           </div>
         )}
 
@@ -901,7 +1429,10 @@ export default function AdminPage() {
             </div>
 
             <button
-              onClick={() => setShowPreview(!showPreview)}
+              onClick={() => {
+                saveBrandConfig(editBrand);
+                setShowPreview(!showPreview);
+              }}
               style={{
                 marginTop: 20,
                 width: "100%",
@@ -916,7 +1447,7 @@ export default function AdminPage() {
                 cursor: "pointer",
               }}
             >
-              {showPreview ? "Hide Preview" : "Preview Changes"}
+              {showPreview ? "Hide Preview" : "Preview & Save"}
             </button>
 
             {showPreview && (
@@ -1105,6 +1636,761 @@ export default function AdminPage() {
         input:focus, textarea:focus { border-color: var(--accent) !important; }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
+    </div>
+  );
+}
+
+// ─── Helper Components ────────────────────────────────────────────────
+
+function ConfirmDialog({ message, onConfirm, onCancel }: any) {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+      }}
+    >
+      <div
+        style={{
+          backgroundColor: "#FFFFFF",
+          borderRadius: 12,
+          padding: 24,
+          maxWidth: 360,
+          boxShadow: "0 4px 16px rgba(0, 0, 0, 0.1)",
+        }}
+      >
+        <p
+          style={{
+            fontSize: 14,
+            color: "var(--text)",
+            marginBottom: 20,
+            lineHeight: 1.5,
+          }}
+        >
+          {message}
+        </p>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={onCancel}
+            style={{
+              flex: 1,
+              padding: "10px 16px",
+              backgroundColor: "rgba(27,42,74,0.08)",
+              color: "var(--text)",
+              border: "none",
+              borderRadius: 6,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+              fontFamily: "var(--body-font)",
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            style={{
+              flex: 1,
+              padding: "10px 16px",
+              backgroundColor: "#D32F2F",
+              color: "#FFFFFF",
+              border: "none",
+              borderRadius: 6,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+              fontFamily: "var(--body-font)",
+            }}
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EntrantForm({ entrant, onSave, classes }: any) {
+  const [form, setForm] = useState(
+    entrant || {
+      name: "",
+      hometown: "",
+      car: { year: "", make: "", model: "", color: "" },
+      entry_class: "",
+      entry_number: "",
+      status: "Pending",
+      user_id: Math.random().toString(36).substr(2, 9),
+    }
+  );
+
+  return (
+    <div
+      style={{
+        backgroundColor: "#FFFFFF",
+        border: "1px solid rgba(27, 42, 74, 0.06)",
+        borderRadius: 8,
+        padding: 16,
+        marginBottom: 16,
+      }}
+    >
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+        <div>
+          <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text)", opacity: 0.5 }}>
+            Name
+          </label>
+          <input
+            type="text"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            style={{
+              width: "100%",
+              marginTop: 4,
+              padding: "8px 12px",
+              border: "1px solid rgba(27, 42, 74, 0.12)",
+              borderRadius: 6,
+              fontFamily: "var(--body-font)",
+              fontSize: 13,
+              outline: "none",
+            }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text)", opacity: 0.5 }}>
+            Hometown
+          </label>
+          <input
+            type="text"
+            value={form.hometown}
+            onChange={(e) => setForm({ ...form, hometown: e.target.value })}
+            style={{
+              width: "100%",
+              marginTop: 4,
+              padding: "8px 12px",
+              border: "1px solid rgba(27, 42, 74, 0.12)",
+              borderRadius: 6,
+              fontFamily: "var(--body-font)",
+              fontSize: 13,
+              outline: "none",
+            }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text)", opacity: 0.5 }}>
+            Car Year
+          </label>
+          <input
+            type="text"
+            value={form.car.year}
+            onChange={(e) => setForm({ ...form, car: { ...form.car, year: e.target.value } })}
+            style={{
+              width: "100%",
+              marginTop: 4,
+              padding: "8px 12px",
+              border: "1px solid rgba(27, 42, 74, 0.12)",
+              borderRadius: 6,
+              fontFamily: "var(--body-font)",
+              fontSize: 13,
+              outline: "none",
+            }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text)", opacity: 0.5 }}>
+            Car Make
+          </label>
+          <input
+            type="text"
+            value={form.car.make}
+            onChange={(e) => setForm({ ...form, car: { ...form.car, make: e.target.value } })}
+            style={{
+              width: "100%",
+              marginTop: 4,
+              padding: "8px 12px",
+              border: "1px solid rgba(27, 42, 74, 0.12)",
+              borderRadius: 6,
+              fontFamily: "var(--body-font)",
+              fontSize: 13,
+              outline: "none",
+            }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text)", opacity: 0.5 }}>
+            Car Model
+          </label>
+          <input
+            type="text"
+            value={form.car.model}
+            onChange={(e) => setForm({ ...form, car: { ...form.car, model: e.target.value } })}
+            style={{
+              width: "100%",
+              marginTop: 4,
+              padding: "8px 12px",
+              border: "1px solid rgba(27, 42, 74, 0.12)",
+              borderRadius: 6,
+              fontFamily: "var(--body-font)",
+              fontSize: 13,
+              outline: "none",
+            }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text)", opacity: 0.5 }}>
+            Car Color
+          </label>
+          <input
+            type="text"
+            value={form.car.color}
+            onChange={(e) => setForm({ ...form, car: { ...form.car, color: e.target.value } })}
+            style={{
+              width: "100%",
+              marginTop: 4,
+              padding: "8px 12px",
+              border: "1px solid rgba(27, 42, 74, 0.12)",
+              borderRadius: 6,
+              fontFamily: "var(--body-font)",
+              fontSize: 13,
+              outline: "none",
+            }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text)", opacity: 0.5 }}>
+            Class
+          </label>
+          <select
+            value={form.entry_class}
+            onChange={(e) => setForm({ ...form, entry_class: e.target.value })}
+            style={{
+              width: "100%",
+              marginTop: 4,
+              padding: "8px 12px",
+              border: "1px solid rgba(27, 42, 74, 0.12)",
+              borderRadius: 6,
+              fontFamily: "var(--body-font)",
+              fontSize: 13,
+              outline: "none",
+            }}
+          >
+            <option value="">Select Class</option>
+            {classes.map((c: any) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text)", opacity: 0.5 }}>
+            Entry #
+          </label>
+          <input
+            type="text"
+            value={form.entry_number}
+            onChange={(e) => setForm({ ...form, entry_number: e.target.value })}
+            style={{
+              width: "100%",
+              marginTop: 4,
+              padding: "8px 12px",
+              border: "1px solid rgba(27, 42, 74, 0.12)",
+              borderRadius: 6,
+              fontFamily: "var(--body-font)",
+              fontSize: 13,
+              outline: "none",
+            }}
+          />
+        </div>
+      </div>
+      <button
+        onClick={() => onSave(form)}
+        style={{
+          width: "100%",
+          padding: "10px",
+          backgroundColor: "var(--accent)",
+          color: "var(--primary)",
+          border: "none",
+          borderRadius: 6,
+          fontSize: 12,
+          fontWeight: 600,
+          cursor: "pointer",
+          fontFamily: "var(--body-font)",
+        }}
+      >
+        {entrant ? "Save Changes" : "Add Entrant"}
+      </button>
+    </div>
+  );
+}
+
+function WaypointForm({ waypoint, onSave, waypointFileInputRef, fileToBase64 }: any) {
+  const [form, setForm] = useState(
+    waypoint || {
+      stop: 1,
+      name: "",
+      time: "",
+      location: "",
+      description: "",
+      photo: null,
+      id: Math.random().toString(36).substr(2, 9),
+    }
+  );
+
+  const handleFileInput = async (file: File) => {
+    const base64 = await fileToBase64(file);
+    setForm({ ...form, photo: base64 });
+  };
+
+  return (
+    <div
+      style={{
+        backgroundColor: "#FFFFFF",
+        border: "1px solid rgba(27, 42, 74, 0.06)",
+        borderRadius: 8,
+        padding: 16,
+        marginBottom: 16,
+      }}
+    >
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+        <div>
+          <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text)", opacity: 0.5 }}>
+            Stop Name
+          </label>
+          <input
+            type="text"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            style={{
+              width: "100%",
+              marginTop: 4,
+              padding: "8px 12px",
+              border: "1px solid rgba(27, 42, 74, 0.12)",
+              borderRadius: 6,
+              fontFamily: "var(--body-font)",
+              fontSize: 13,
+              outline: "none",
+            }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text)", opacity: 0.5 }}>
+            Time
+          </label>
+          <input
+            type="text"
+            value={form.time}
+            onChange={(e) => setForm({ ...form, time: e.target.value })}
+            placeholder="10:30 AM"
+            style={{
+              width: "100%",
+              marginTop: 4,
+              padding: "8px 12px",
+              border: "1px solid rgba(27, 42, 74, 0.12)",
+              borderRadius: 6,
+              fontFamily: "var(--body-font)",
+              fontSize: 13,
+              outline: "none",
+            }}
+          />
+        </div>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text)", opacity: 0.5 }}>
+            Location
+          </label>
+          <input
+            type="text"
+            value={form.location}
+            onChange={(e) => setForm({ ...form, location: e.target.value })}
+            style={{
+              width: "100%",
+              marginTop: 4,
+              padding: "8px 12px",
+              border: "1px solid rgba(27, 42, 74, 0.12)",
+              borderRadius: 6,
+              fontFamily: "var(--body-font)",
+              fontSize: 13,
+              outline: "none",
+            }}
+          />
+        </div>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text)", opacity: 0.5 }}>
+            Description
+          </label>
+          <textarea
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            rows={3}
+            style={{
+              width: "100%",
+              marginTop: 4,
+              padding: "8px 12px",
+              border: "1px solid rgba(27, 42, 74, 0.12)",
+              borderRadius: 6,
+              fontFamily: "var(--body-font)",
+              fontSize: 13,
+              outline: "none",
+              resize: "vertical",
+            }}
+          />
+        </div>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text)", opacity: 0.5 }}>
+            Photo
+          </label>
+          <input
+            type="file"
+            ref={waypointFileInputRef}
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.currentTarget.files?.[0];
+              if (file) handleFileInput(file);
+            }}
+            style={{ display: "none" }}
+          />
+          <button
+            onClick={() => waypointFileInputRef?.current?.click()}
+            style={{
+              width: "100%",
+              marginTop: 4,
+              padding: "8px 12px",
+              backgroundColor: "rgba(27,42,74,0.06)",
+              border: "1px solid rgba(27, 42, 74, 0.12)",
+              borderRadius: 6,
+              fontFamily: "var(--body-font)",
+              fontSize: 13,
+              cursor: "pointer",
+              color: "var(--text)",
+            }}
+          >
+            {form.photo ? "Change Photo" : "Upload Photo"}
+          </button>
+          {form.photo && (
+            <img
+              src={form.photo}
+              alt="Preview"
+              style={{
+                marginTop: 8,
+                maxWidth: 200,
+                maxHeight: 100,
+                borderRadius: 4,
+              }}
+            />
+          )}
+        </div>
+      </div>
+      <button
+        onClick={() => onSave(form)}
+        style={{
+          width: "100%",
+          padding: "10px",
+          backgroundColor: "var(--accent)",
+          color: "var(--primary)",
+          border: "none",
+          borderRadius: 6,
+          fontSize: 12,
+          fontWeight: 600,
+          cursor: "pointer",
+          fontFamily: "var(--body-font)",
+        }}
+      >
+        {waypoint ? "Save Changes" : "Add Stop"}
+      </button>
+    </div>
+  );
+}
+
+function SponsorForm({ sponsor, onSave, fileToBase64, sponsorFileInputRef }: any) {
+  const [form, setForm] = useState(
+    sponsor || {
+      name: "",
+      tier: "Gold",
+      logo: null,
+      website: "",
+      id: Math.random().toString(36).substr(2, 9),
+    }
+  );
+
+  const handleFileInput = async (file: File) => {
+    const base64 = await fileToBase64(file);
+    setForm({ ...form, logo: base64 });
+  };
+
+  return (
+    <div
+      style={{
+        backgroundColor: "#FFFFFF",
+        border: "1px solid rgba(27, 42, 74, 0.06)",
+        borderRadius: 8,
+        padding: 16,
+        marginBottom: 16,
+      }}
+    >
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+        <div>
+          <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text)", opacity: 0.5 }}>
+            Sponsor Name
+          </label>
+          <input
+            type="text"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            style={{
+              width: "100%",
+              marginTop: 4,
+              padding: "8px 12px",
+              border: "1px solid rgba(27, 42, 74, 0.12)",
+              borderRadius: 6,
+              fontFamily: "var(--body-font)",
+              fontSize: 13,
+              outline: "none",
+            }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text)", opacity: 0.5 }}>
+            Tier
+          </label>
+          <select
+            value={form.tier}
+            onChange={(e) => setForm({ ...form, tier: e.target.value })}
+            style={{
+              width: "100%",
+              marginTop: 4,
+              padding: "8px 12px",
+              border: "1px solid rgba(27, 42, 74, 0.12)",
+              borderRadius: 6,
+              fontFamily: "var(--body-font)",
+              fontSize: 13,
+              outline: "none",
+            }}
+          >
+            <option>Presenting</option>
+            <option>Gold</option>
+            <option>Silver</option>
+            <option>Bronze</option>
+          </select>
+        </div>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text)", opacity: 0.5 }}>
+            Website
+          </label>
+          <input
+            type="text"
+            value={form.website}
+            onChange={(e) => setForm({ ...form, website: e.target.value })}
+            placeholder="https://example.com"
+            style={{
+              width: "100%",
+              marginTop: 4,
+              padding: "8px 12px",
+              border: "1px solid rgba(27, 42, 74, 0.12)",
+              borderRadius: 6,
+              fontFamily: "var(--body-font)",
+              fontSize: 13,
+              outline: "none",
+            }}
+          />
+        </div>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text)", opacity: 0.5 }}>
+            Logo
+          </label>
+          <input
+            type="file"
+            ref={sponsorFileInputRef}
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.currentTarget.files?.[0];
+              if (file) handleFileInput(file);
+            }}
+            style={{ display: "none" }}
+          />
+          <button
+            onClick={() => sponsorFileInputRef?.current?.click()}
+            style={{
+              width: "100%",
+              marginTop: 4,
+              padding: "8px 12px",
+              backgroundColor: "rgba(27,42,74,0.06)",
+              border: "1px solid rgba(27, 42, 74, 0.12)",
+              borderRadius: 6,
+              fontFamily: "var(--body-font)",
+              fontSize: 13,
+              cursor: "pointer",
+              color: "var(--text)",
+            }}
+          >
+            {form.logo ? "Change Logo" : "Upload Logo"}
+          </button>
+          {form.logo && (
+            <img
+              src={form.logo}
+              alt="Logo Preview"
+              style={{
+                marginTop: 8,
+                maxWidth: 120,
+                maxHeight: 60,
+                borderRadius: 4,
+              }}
+            />
+          )}
+        </div>
+      </div>
+      <button
+        onClick={() => onSave(form)}
+        style={{
+          width: "100%",
+          padding: "10px",
+          backgroundColor: "var(--accent)",
+          color: "var(--primary)",
+          border: "none",
+          borderRadius: 6,
+          fontSize: 12,
+          fontWeight: 600,
+          cursor: "pointer",
+          fontFamily: "var(--body-font)",
+        }}
+      >
+        {sponsor ? "Save Changes" : "Add Sponsor"}
+      </button>
+    </div>
+  );
+}
+
+function PageForm({ page, onSave, fileToBase64, pageFileInputRef }: any) {
+  const [form, setForm] = useState(
+    page || {
+      title: "",
+      body: "",
+      photo: null,
+      id: Math.random().toString(36).substr(2, 9),
+    }
+  );
+
+  const handleFileInput = async (file: File) => {
+    const base64 = await fileToBase64(file);
+    setForm({ ...form, photo: base64 });
+  };
+
+  return (
+    <div
+      style={{
+        backgroundColor: "#FFFFFF",
+        border: "1px solid rgba(27, 42, 74, 0.06)",
+        borderRadius: 8,
+        padding: 16,
+        marginBottom: 16,
+      }}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 12 }}>
+        <div>
+          <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text)", opacity: 0.5 }}>
+            Page Title
+          </label>
+          <input
+            type="text"
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+            style={{
+              width: "100%",
+              marginTop: 4,
+              padding: "8px 12px",
+              border: "1px solid rgba(27, 42, 74, 0.12)",
+              borderRadius: 6,
+              fontFamily: "var(--body-font)",
+              fontSize: 13,
+              outline: "none",
+            }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text)", opacity: 0.5 }}>
+            Body Text
+          </label>
+          <textarea
+            value={form.body}
+            onChange={(e) => setForm({ ...form, body: e.target.value })}
+            rows={5}
+            style={{
+              width: "100%",
+              marginTop: 4,
+              padding: "8px 12px",
+              border: "1px solid rgba(27, 42, 74, 0.12)",
+              borderRadius: 6,
+              fontFamily: "var(--body-font)",
+              fontSize: 13,
+              outline: "none",
+              resize: "vertical",
+            }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text)", opacity: 0.5 }}>
+            Photo
+          </label>
+          <input
+            type="file"
+            ref={pageFileInputRef}
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.currentTarget.files?.[0];
+              if (file) handleFileInput(file);
+            }}
+            style={{ display: "none" }}
+          />
+          <button
+            onClick={() => pageFileInputRef?.current?.click()}
+            style={{
+              width: "100%",
+              marginTop: 4,
+              padding: "8px 12px",
+              backgroundColor: "rgba(27,42,74,0.06)",
+              border: "1px solid rgba(27, 42, 74, 0.12)",
+              borderRadius: 6,
+              fontFamily: "var(--body-font)",
+              fontSize: 13,
+              cursor: "pointer",
+              color: "var(--text)",
+            }}
+          >
+            {form.photo ? "Change Photo" : "Upload Photo"}
+          </button>
+          {form.photo && (
+            <img
+              src={form.photo}
+              alt="Photo Preview"
+              style={{
+                marginTop: 8,
+                maxWidth: 200,
+                maxHeight: 100,
+                borderRadius: 4,
+              }}
+            />
+          )}
+        </div>
+      </div>
+      <button
+        onClick={() => onSave(form)}
+        style={{
+          width: "100%",
+          padding: "10px",
+          backgroundColor: "var(--accent)",
+          color: "var(--primary)",
+          border: "none",
+          borderRadius: 6,
+          fontSize: 12,
+          fontWeight: 600,
+          cursor: "pointer",
+          fontFamily: "var(--body-font)",
+        }}
+      >
+        {page ? "Save Changes" : "Add Page"}
+      </button>
     </div>
   );
 }

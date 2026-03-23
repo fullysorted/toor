@@ -110,6 +110,47 @@ export function getWaypoints(tenantIdOverride?: string) {
   return SEED_TOUR_WAYPOINTS;
 }
 
+export function saveWaypoints(waypoints: any[]) {
+  const tenantId = getActiveTenantId();
+  localStorage.setItem(key(tenantId, "tour_waypoints"), JSON.stringify(waypoints));
+}
+
+// ─── Sponsors ────────────────────────────────────────────────────────────────
+
+export function getSponsors() {
+  const tenantId = getActiveTenantId();
+  const raw = localStorage.getItem(key(tenantId, "sponsors"));
+  if (raw) return JSON.parse(raw);
+  return [];
+}
+
+export function saveSponsors(sponsors: any[]) {
+  const tenantId = getActiveTenantId();
+  localStorage.setItem(key(tenantId, "sponsors"), JSON.stringify(sponsors));
+}
+
+// ─── Program Pages ───────────────────────────────────────────────────────────
+
+export function getProgramPages() {
+  const tenantId = getActiveTenantId();
+  const raw = localStorage.getItem(key(tenantId, "program_pages"));
+  if (raw) return JSON.parse(raw);
+  return [];
+}
+
+export function saveProgramPages(pages: any[]) {
+  const tenantId = getActiveTenantId();
+  localStorage.setItem(key(tenantId, "program_pages"), JSON.stringify(pages));
+}
+
+// ─── Brand Config (save) ─────────────────────────────────────────────────────
+
+export function saveBrandConfig(config: any) {
+  const tenantId = getActiveTenantId();
+  localStorage.setItem(key(tenantId, "brand_config"), JSON.stringify(config));
+  applyBrandConfig(config);
+}
+
 // ─── Classes ─────────────────────────────────────────────────────────────────
 
 export function getClasses() {
