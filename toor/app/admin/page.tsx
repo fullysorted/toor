@@ -58,11 +58,11 @@ export default function AdminPage() {
   }, []);
 
   const handleLogin = () => {
-    if (email === "admin@lajollaconcours.com" && password === "admin2026") {
+    if (email === "chris@fullysorted.com" && password === "Cactus1982!!") {
       setIsLoggedIn(true);
       setLoginError("");
     } else {
-      setLoginError("Invalid credentials. Try admin@lajollaconcours.com / admin2026");
+      setLoginError("Invalid credentials.");
     }
   };
 

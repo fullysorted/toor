@@ -706,6 +706,37 @@ export default function HomePage() {
         </div>
       </div>
 
+      {/* ── Contact Organizers ── */}
+      <div style={{ padding: "8px 24px 20px" }}>
+        <a
+          href={`mailto:${brandConfig.contact_email || "chris@fullysorted.com"}?subject=${encodeURIComponent(brandConfig.event_name + " — Attendee Question")}`}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 10,
+            width: "100%",
+            padding: "16px 20px",
+            backgroundColor: "var(--primary)",
+            color: "var(--bg)",
+            borderRadius: 12,
+            fontFamily: "var(--body-font)",
+            fontSize: 14,
+            fontWeight: 500,
+            letterSpacing: "0.03em",
+            textDecoration: "none",
+            transition: "opacity 0.2s",
+            boxShadow: "0 2px 8px rgba(27, 42, 74, 0.12)",
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+            <polyline points="22,6 12,13 2,6" />
+          </svg>
+          Contact Organizers
+        </a>
+      </div>
+
       {/* ── Footer ── */}
       <div
         style={{

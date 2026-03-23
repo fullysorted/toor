@@ -17,6 +17,7 @@ export const SEED_BRAND_CONFIG = {
   body_font: "Inter",
   logo_url: "",
   anniversary_note: "Celebrating 20 Years",
+  contact_email: "chris@fullysorted.com",
 };
 
 export const SEED_EVENTS = [
