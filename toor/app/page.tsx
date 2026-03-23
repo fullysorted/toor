@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { seedIfNeeded, getBrandConfig, applyBrandConfig, setCurrentUser, getActiveTenantId } from "@/lib/store";
+import { seedIfNeeded, getBrandConfig, applyBrandConfig, setCurrentUser, getCurrentUser, getActiveTenantId } from "@/lib/store";
 
 export default function SplashPage() {
   const router = useRouter();
@@ -20,24 +20,40 @@ export default function SplashPage() {
     const config = getBrandConfig();
     applyBrandConfig(config);
     setBrandConfig(config);
+
+    // If user already exists with a name, skip to home
+    const existingUser = getCurrentUser();
+    if (existingUser && existingUser.name) {
+      router.push("/home");
+      return;
+    }
+
     setTimeout(() => setIsLoading(false), 600);
   }, []);
 
   const handleSignIn = (method: string) => {
     setLoginState("authenticating");
-    setCurrentUser({
-      user_id: "user-current",
-      name: "",
-      hometown: "",
-      bio: "",
-      years_collecting: 0,
-      photo_url: "",
-      auth_method: method,
-      created_at: new Date().toISOString(),
-    });
+
+    // Check if returning user (already has a name set)
+    const existingUser = getCurrentUser();
+    const isReturning = existingUser && existingUser.name;
+
+    if (!isReturning) {
+      setCurrentUser({
+        user_id: "user-current",
+        name: "",
+        hometown: "",
+        bio: "",
+        years_collecting: 0,
+        photo_url: "",
+        auth_method: method,
+        created_at: new Date().toISOString(),
+      });
+    }
+
     setTimeout(() => {
       setLoginState("done");
-      setTimeout(() => router.push("/profile"), 800);
+      setTimeout(() => router.push(isReturning ? "/home" : "/profile"), 800);
     }, 1200);
   };
 
@@ -57,7 +73,7 @@ export default function SplashPage() {
           <path d="M14 24l7 7 13-13" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <p style={{ fontFamily: "var(--heading-font)", fontSize: 22 }}>Welcome to {brandConfig.event_name}</p>
-        <p className="text-sm opacity-70">Proceeding to profile setup…</p>
+        <p className="text-sm opacity-70">{getCurrentUser()?.name ? "Welcome back…" : "Proceeding to profile setup…"}</p>
       </div>
     );
   }

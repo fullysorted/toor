@@ -9,6 +9,7 @@ import {
   getMessages,
   saveMessage,
 } from "@/lib/store";
+import BottomNav from "@/components/BottomNav";
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -669,6 +670,7 @@ export default function ConnectPage() {
         minHeight: "100vh",
         backgroundColor: "var(--bg)",
         fontFamily: "var(--body-font)",
+        paddingBottom: 80,
       }}
     >
       {/* Top Bar */}
@@ -992,6 +994,7 @@ export default function ConnectPage() {
         input::placeholder { color: rgba(44, 44, 44, 0.3); }
         input:focus { border-color: var(--accent) !important; }
       `}</style>
+      <BottomNav active="connect" />
     </div>
   );
 }

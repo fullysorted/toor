@@ -9,6 +9,7 @@ import {
   getUserEntry,
   getEvents,
 } from "@/lib/store";
+import BottomNav from "@/components/BottomNav";
 
 // ─── Day Mapping ─────────────────────────────────────────────────────────────
 
@@ -165,6 +166,7 @@ export default function HomePage() {
   const [events, setEvents] = useState<any[]>([]);
   const [activeDay, setActiveDay] = useState("Friday");
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   useEffect(() => {
     const config = getBrandConfig();
@@ -207,6 +209,7 @@ export default function HomePage() {
         minHeight: "100vh",
         backgroundColor: "var(--bg)",
         fontFamily: "var(--body-font)",
+        paddingBottom: 80,
       }}
     >
       {/* ── Top Bar ── */}
@@ -247,23 +250,139 @@ export default function HomePage() {
             {brandConfig.event_name}
           </div>
         </div>
-        {/* User Avatar */}
-        <div
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: "50%",
-            backgroundColor: "var(--accent)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 14,
-            fontWeight: 600,
-            color: "var(--primary)",
-            fontFamily: "var(--body-font)",
-          }}
-        >
-          {firstName.charAt(0).toUpperCase()}
+        {/* User Avatar + Menu */}
+        <div style={{ position: "relative" }}>
+          <button
+            onClick={() => setShowUserMenu(!showUserMenu)}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: "50%",
+              backgroundColor: "var(--accent)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 14,
+              fontWeight: 600,
+              color: "var(--primary)",
+              fontFamily: "var(--body-font)",
+              border: "none",
+              cursor: "pointer",
+              overflow: "hidden",
+            }}
+          >
+            {user.photo_url ? (
+              <img src={user.photo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ) : (
+              firstName.charAt(0).toUpperCase()
+            )}
+          </button>
+          {showUserMenu && (
+            <>
+              <div
+                onClick={() => setShowUserMenu(false)}
+                style={{ position: "fixed", inset: 0, zIndex: 19 }}
+              />
+              <div style={{
+                position: "absolute",
+                top: 44,
+                right: 0,
+                backgroundColor: "#FFFFFF",
+                borderRadius: 12,
+                boxShadow: "0 8px 24px rgba(27, 42, 74, 0.15)",
+                border: "1px solid rgba(27, 42, 74, 0.08)",
+                overflow: "hidden",
+                zIndex: 20,
+                minWidth: 200,
+                animation: "fadeUp 0.15s ease-out",
+              }}>
+                <div style={{
+                  padding: "14px 16px",
+                  borderBottom: "1px solid rgba(27, 42, 74, 0.06)",
+                }}>
+                  <div style={{
+                    fontFamily: "var(--heading-font)",
+                    fontSize: 16,
+                    fontWeight: 500,
+                    color: "var(--primary)",
+                  }}>
+                    {user.name || "Guest"}
+                  </div>
+                  {carName && (
+                    <div style={{
+                      fontSize: 12,
+                      color: "var(--accent)",
+                      fontStyle: "italic",
+                      marginTop: 2,
+                    }}>
+                      {carName}
+                    </div>
+                  )}
+                </div>
+                {[
+                  { label: "Edit Profile", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z", href: "/profile" },
+                  { label: "My Garage", icon: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5", href: "/garage" },
+                  { label: "Admin Panel", icon: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z", href: "/admin" },
+                ].map((item) => (
+                  <button
+                    key={item.label}
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      router.push(item.href);
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      width: "100%",
+                      padding: "12px 16px",
+                      backgroundColor: "transparent",
+                      border: "none",
+                      borderBottom: "1px solid rgba(27, 42, 74, 0.04)",
+                      fontFamily: "var(--body-font)",
+                      fontSize: 14,
+                      color: "var(--text)",
+                      cursor: "pointer",
+                      textAlign: "left",
+                    }}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                      stroke="var(--text)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.4 }}>
+                      <path d={item.icon} />
+                    </svg>
+                    {item.label}
+                  </button>
+                ))}
+                <button
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    localStorage.removeItem("toor_platform_current_user");
+                    router.push("/");
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    width: "100%",
+                    padding: "12px 16px",
+                    backgroundColor: "transparent",
+                    border: "none",
+                    fontFamily: "var(--body-font)",
+                    fontSize: 14,
+                    color: "#B44A4A",
+                    cursor: "pointer",
+                    textAlign: "left",
+                  }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                    stroke="#B44A4A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
+                    <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  Sign Out
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -758,18 +877,8 @@ export default function HomePage() {
         </p>
       </div>
 
-      {/* ── Bottom Accent Line ── */}
-      <div
-        style={{
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: 2,
-          background: `linear-gradient(90deg, transparent, var(--accent), transparent)`,
-          opacity: 0.3,
-        }}
-      />
+      {/* ── Bottom Navigation ── */}
+      <BottomNav active="home" />
 
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getBrandConfig, applyBrandConfig, getSponsors, getProgramPages } from "@/lib/store";
+import BottomNav from "@/components/BottomNav";
 
 // ─── Program Content ─────────────────────────────────────────────────────────
 
@@ -244,6 +245,7 @@ export default function ProgramPage() {
         minHeight: "100vh",
         backgroundColor: "var(--bg)",
         fontFamily: "var(--body-font)",
+        paddingBottom: 80,
       }}
     >
       {/* Top Bar */}
@@ -837,6 +839,7 @@ export default function ProgramPage() {
         html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
         button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
       `}</style>
+      <BottomNav active="program" />
     </div>
   );
 }

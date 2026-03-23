@@ -10,6 +10,7 @@ import {
   getCollection,
   saveCollection,
 } from "@/lib/store";
+import BottomNav from "@/components/BottomNav";
 
 // ─── Document Upload Placeholder ─────────────────────────────────────────────
 
@@ -221,6 +222,7 @@ export default function Garage() {
         minHeight: "100vh",
         backgroundColor: "var(--bg)",
         fontFamily: "var(--body-font)",
+        paddingBottom: 80,
       }}
     >
       {/* Top Bar */}
@@ -817,6 +819,7 @@ export default function Garage() {
         input[type=number] { -moz-appearance: textfield; }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
+      <BottomNav active="garage" />
     </div>
   );
 }
