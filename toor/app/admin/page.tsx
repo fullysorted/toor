@@ -67,9 +67,14 @@ export default function AdminPage() {
     type: "entrant" | "waypoint" | "sponsor" | "page";
     id: string | number;
   } | null>(null);
+  const [csvPreview, setCsvPreview] = useState<any[] | null>(null);
+  const [csvError, setCsvError] = useState("");
+  const [csvSuccess, setCsvSuccess] = useState("");
+  const [linkCopied, setLinkCopied] = useState(false);
   const waypointFileInputRef = useRef<HTMLInputElement>(null);
   const sponsorFileInputRef = useRef<HTMLInputElement>(null);
   const pageFileInputRef = useRef<HTMLInputElement>(null);
+  const csvFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // Load Google Fonts
@@ -117,6 +122,166 @@ export default function AdminPage() {
       setNotificationSent(false);
       setNotificationText("");
     }, 3000);
+  };
+
+  // ── CSV Parsing ──
+  const parseCSV = (text: string): string[][] => {
+    const rows: string[][] = [];
+    let current = "";
+    let inQuotes = false;
+    let row: string[] = [];
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (inQuotes) {
+        if (ch === '"' && text[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else if (ch === '"') {
+          inQuotes = false;
+        } else {
+          current += ch;
+        }
+      } else {
+        if (ch === '"') {
+          inQuotes = true;
+        } else if (ch === ",") {
+          row.push(current.trim());
+          current = "";
+        } else if (ch === "\n" || ch === "\r") {
+          if (ch === "\r" && text[i + 1] === "\n") i++;
+          row.push(current.trim());
+          if (row.some((c) => c !== "")) rows.push(row);
+          row = [];
+          current = "";
+        } else {
+          current += ch;
+        }
+      }
+    }
+    row.push(current.trim());
+    if (row.some((c) => c !== "")) rows.push(row);
+    return rows;
+  };
+
+  const handleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvError("");
+    setCsvSuccess("");
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const text = ev.target?.result as string;
+        const rows = parseCSV(text);
+        if (rows.length < 2) {
+          setCsvError("CSV must have a header row and at least one data row.");
+          return;
+        }
+        const headers = rows[0].map((h) => h.toLowerCase().replace(/[^a-z0-9]/g, "_"));
+        const dataRows = rows.slice(1);
+
+        // Map columns flexibly
+        const findCol = (names: string[]) =>
+          headers.findIndex((h) => names.some((n) => h.includes(n)));
+        const nameIdx = findCol(["name", "entrant", "owner"]);
+        const hometownIdx = findCol(["hometown", "city", "location", "from"]);
+        const yearIdx = findCol(["year"]);
+        const makeIdx = findCol(["make", "manufacturer", "brand"]);
+        const modelIdx = findCol(["model"]);
+        const colorIdx = findCol(["color", "colour"]);
+        const classIdx = findCol(["class", "category"]);
+        const numberIdx = findCol(["number", "entry_number", "num", "entry_num", "entry__"]);
+        const bioIdx = findCol(["bio", "biography", "about", "description"]);
+        const statusIdx = findCol(["status"]);
+
+        if (nameIdx === -1) {
+          setCsvError("Could not find a 'Name' column. Please include a column header with 'Name'.");
+          return;
+        }
+
+        const parsed = dataRows.map((row, i) => ({
+          user_id: `csv-${Date.now()}-${i}`,
+          name: row[nameIdx] || "",
+          hometown: hometownIdx >= 0 ? row[hometownIdx] || "" : "",
+          years_collecting: 0,
+          bio: bioIdx >= 0 ? row[bioIdx] || "" : "",
+          car: {
+            year: yearIdx >= 0 ? (parseInt(row[yearIdx]) || row[yearIdx] || "") : "",
+            make: makeIdx >= 0 ? row[makeIdx] || "" : "",
+            model: modelIdx >= 0 ? row[modelIdx] || "" : "",
+            color: colorIdx >= 0 ? row[colorIdx] || "" : "",
+          },
+          entry_class: classIdx >= 0 ? row[classIdx] || "" : "",
+          entry_number: numberIdx >= 0 ? (parseInt(row[numberIdx]) || i + 1) : i + 1,
+          status: statusIdx >= 0 && row[statusIdx] ? row[statusIdx] : "Confirmed",
+        })).filter((e) => e.name);
+
+        if (parsed.length === 0) {
+          setCsvError("No valid entrants found in CSV.");
+          return;
+        }
+
+        setCsvPreview(parsed);
+      } catch (err) {
+        setCsvError("Failed to parse CSV. Please check the file format.");
+      }
+    };
+    reader.readAsText(file);
+    // Reset so the same file can be re-uploaded
+    e.target.value = "";
+  };
+
+  const confirmCSVImport = (mode: "replace" | "append") => {
+    if (!csvPreview) return;
+    const newEntrants = mode === "replace" ? csvPreview : [...entrants, ...csvPreview];
+    setEntrants(newEntrants);
+    saveEntrants(newEntrants);
+    setCsvSuccess(`${csvPreview.length} entrants ${mode === "replace" ? "imported" : "added"}!`);
+    setCsvPreview(null);
+    setTimeout(() => setCsvSuccess(""), 4000);
+  };
+
+  const exportCSV = () => {
+    const headers = ["Entry Number", "Name", "Hometown", "Car Year", "Car Make", "Car Model", "Car Color", "Class", "Status", "Bio"];
+    const rows = entrants.map((e) => [
+      e.entry_number,
+      `"${(e.name || "").replace(/"/g, '""')}"`,
+      `"${(e.hometown || "").replace(/"/g, '""')}"`,
+      e.car?.year || "",
+      `"${(e.car?.make || "").replace(/"/g, '""')}"`,
+      `"${(e.car?.model || "").replace(/"/g, '""')}"`,
+      `"${(e.car?.color || "").replace(/"/g, '""')}"`,
+      `"${(e.entry_class || "").replace(/"/g, '""')}"`,
+      e.status || "",
+      `"${(e.bio || "").replace(/"/g, '""')}"`,
+    ]);
+    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `entrants-${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadSeedFile = () => {
+    const entrantsJson = JSON.stringify(entrants, null, 2);
+    const code = `// Generated entrants data — paste into lib/seed-data.ts to update deployed app\nexport const SEED_ENTRANTS = ${entrantsJson};\n`;
+    const blob = new Blob([code], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "seed-entrants.ts";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const copyShareLink = () => {
+    navigator.clipboard.writeText("https://toor.vercel.app").then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 3000);
+    });
   };
 
   if (!brandConfig) return null;
@@ -476,15 +641,13 @@ export default function AdminPage() {
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {[
-                "Send push notification to all entrants",
-                "Export entrant list as CSV",
-                "View app analytics dashboard",
-              ].map((action, i) => (
+                { label: "Send push notification to all entrants", action: () => {} },
+                { label: "Export entrant list as CSV", action: () => exportCSV() },
+                { label: "Copy attendee link", action: () => copyShareLink() },
+              ].map((item, i) => (
                 <button
                   key={i}
-                  onClick={() =>
-                    setActiveTab(i === 0 ? "notifications" : "dashboard")
-                  }
+                  onClick={item.action}
                   style={{
                     display: "flex",
                     justifyContent: "space-between",
@@ -500,7 +663,7 @@ export default function AdminPage() {
                     textAlign: "left",
                   }}
                 >
-                  {action}
+                  {i === 2 && linkCopied ? "Link Copied!" : item.label}
                   <svg
                     width="14"
                     height="14"
@@ -521,12 +684,52 @@ export default function AdminPage() {
         {/* ── Entrants Tab ── */}
         {activeTab === "entrants" && (
           <div>
+            {/* Share Link Banner */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "12px 16px",
+                marginBottom: 16,
+                backgroundColor: "rgba(201, 168, 76, 0.08)",
+                borderRadius: 8,
+                borderLeft: "3px solid var(--accent)",
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--primary)" }}>
+                  Attendee Link
+                </div>
+                <div style={{ fontSize: 11, color: "var(--text)", opacity: 0.5, marginTop: 2 }}>
+                  toor.vercel.app
+                </div>
+              </div>
+              <button
+                onClick={copyShareLink}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: linkCopied ? "#2E7D32" : "var(--primary)",
+                  color: "var(--bg)",
+                  border: "none",
+                  borderRadius: 6,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "var(--body-font)",
+                  transition: "all 0.2s",
+                }}
+              >
+                {linkCopied ? "Copied!" : "Copy Link"}
+              </button>
+            </div>
+
             <div
               style={{
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                marginBottom: 20,
+                marginBottom: 16,
               }}
             >
               <p
@@ -542,23 +745,290 @@ export default function AdminPage() {
               >
                 {entrants.length} Registered Entrants
               </p>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button
+                  onClick={() => setAddingEntrant(!addingEntrant)}
+                  style={{
+                    padding: "8px 14px",
+                    backgroundColor: addingEntrant ? "rgba(27,42,74,0.1)" : "var(--accent)",
+                    color: addingEntrant ? "var(--text)" : "var(--primary)",
+                    border: "none",
+                    borderRadius: 6,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    fontFamily: "var(--body-font)",
+                  }}
+                >
+                  {addingEntrant ? "Cancel" : "Add Entrant"}
+                </button>
+              </div>
+            </div>
+
+            {/* CSV Import / Export Row */}
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                marginBottom: 16,
+                flexWrap: "wrap",
+              }}
+            >
+              <input
+                type="file"
+                ref={csvFileInputRef}
+                accept=".csv,.tsv,.txt"
+                onChange={handleCSVUpload}
+                style={{ display: "none" }}
+              />
               <button
-                onClick={() => setAddingEntrant(!addingEntrant)}
+                onClick={() => csvFileInputRef.current?.click()}
                 style={{
-                  padding: "8px 14px",
-                  backgroundColor: addingEntrant ? "rgba(27,42,74,0.1)" : "var(--accent)",
-                  color: addingEntrant ? "var(--text)" : "var(--primary)",
-                  border: "none",
-                  borderRadius: 6,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "10px 16px",
+                  backgroundColor: "#FFFFFF",
+                  border: "1px solid rgba(27, 42, 74, 0.12)",
+                  borderRadius: 8,
                   fontSize: 12,
-                  fontWeight: 600,
+                  fontWeight: 500,
                   cursor: "pointer",
                   fontFamily: "var(--body-font)",
+                  color: "var(--primary)",
                 }}
               >
-                {addingEntrant ? "Cancel" : "Add Entrant"}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+                Import CSV
+              </button>
+              <button
+                onClick={exportCSV}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "10px 16px",
+                  backgroundColor: "#FFFFFF",
+                  border: "1px solid rgba(27, 42, 74, 0.12)",
+                  borderRadius: 8,
+                  fontSize: 12,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  fontFamily: "var(--body-font)",
+                  color: "var(--primary)",
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Export CSV
+              </button>
+              <button
+                onClick={downloadSeedFile}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "10px 16px",
+                  backgroundColor: "#FFFFFF",
+                  border: "1px solid rgba(27, 42, 74, 0.12)",
+                  borderRadius: 8,
+                  fontSize: 12,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  fontFamily: "var(--body-font)",
+                  color: "var(--primary)",
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                </svg>
+                Seed File
               </button>
             </div>
+
+            {/* CSV Error */}
+            {csvError && (
+              <div
+                style={{
+                  padding: "10px 14px",
+                  marginBottom: 12,
+                  backgroundColor: "rgba(211, 47, 47, 0.08)",
+                  borderRadius: 8,
+                  borderLeft: "3px solid #D32F2F",
+                  fontSize: 12,
+                  color: "#D32F2F",
+                }}
+              >
+                {csvError}
+              </div>
+            )}
+
+            {/* CSV Success */}
+            {csvSuccess && (
+              <div
+                style={{
+                  padding: "10px 14px",
+                  marginBottom: 12,
+                  backgroundColor: "rgba(76, 175, 80, 0.08)",
+                  borderRadius: 8,
+                  borderLeft: "3px solid #2E7D32",
+                  fontSize: 12,
+                  color: "#2E7D32",
+                }}
+              >
+                {csvSuccess}
+              </div>
+            )}
+
+            {/* CSV Preview */}
+            {csvPreview && (
+              <div
+                style={{
+                  padding: 16,
+                  marginBottom: 16,
+                  backgroundColor: "#FFFFFF",
+                  border: "2px solid var(--accent)",
+                  borderRadius: 10,
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--primary)" }}>
+                      Preview: {csvPreview.length} entrants found
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--text)", opacity: 0.5, marginTop: 2 }}>
+                      Review the data below, then choose to replace or append.
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { setCsvPreview(null); setCsvError(""); }}
+                    style={{
+                      padding: "4px 10px",
+                      backgroundColor: "rgba(27,42,74,0.08)",
+                      border: "none",
+                      borderRadius: 4,
+                      fontSize: 11,
+                      cursor: "pointer",
+                      fontFamily: "var(--body-font)",
+                      color: "var(--text)",
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                <div style={{ overflowX: "auto", maxHeight: 240, overflowY: "auto", marginBottom: 12 }}>
+                  <table
+                    style={{
+                      width: "100%",
+                      borderCollapse: "collapse",
+                      fontFamily: "var(--body-font)",
+                      fontSize: 11,
+                    }}
+                  >
+                    <thead>
+                      <tr style={{ borderBottom: "1px solid rgba(27, 42, 74, 0.1)" }}>
+                        {["#", "Name", "Car", "Class", "Status"].map((h) => (
+                          <th
+                            key={h}
+                            style={{
+                              padding: "6px 8px",
+                              textAlign: "left",
+                              fontSize: 9,
+                              fontWeight: 600,
+                              letterSpacing: "0.08em",
+                              textTransform: "uppercase",
+                              color: "var(--text)",
+                              opacity: 0.4,
+                              whiteSpace: "nowrap",
+                              position: "sticky",
+                              top: 0,
+                              backgroundColor: "#FFFFFF",
+                            }}
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {csvPreview.slice(0, 50).map((ent, i) => (
+                        <tr key={i} style={{ borderBottom: "1px solid rgba(27, 42, 74, 0.04)" }}>
+                          <td style={{ padding: "6px 8px", color: "var(--accent)", fontWeight: 600 }}>
+                            {ent.entry_number}
+                          </td>
+                          <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>
+                            <div style={{ fontWeight: 500, color: "var(--primary)" }}>{ent.name}</div>
+                            <div style={{ fontSize: 10, opacity: 0.4 }}>{ent.hometown}</div>
+                          </td>
+                          <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>
+                            {ent.car.year} {ent.car.make} {ent.car.model}
+                          </td>
+                          <td style={{ padding: "6px 8px", fontSize: 10 }}>
+                            {(ent.entry_class || "").split(" (")[0] || "—"}
+                          </td>
+                          <td style={{ padding: "6px 8px", fontSize: 10, color: ent.status === "Confirmed" ? "#2E7D32" : "#E65100" }}>
+                            {ent.status}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {csvPreview.length > 50 && (
+                    <div style={{ textAlign: "center", padding: 8, fontSize: 11, opacity: 0.5 }}>
+                      ...and {csvPreview.length - 50} more
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={() => confirmCSVImport("replace")}
+                    style={{
+                      flex: 1,
+                      padding: "12px",
+                      backgroundColor: "var(--accent)",
+                      color: "var(--primary)",
+                      border: "none",
+                      borderRadius: 8,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      fontFamily: "var(--body-font)",
+                    }}
+                  >
+                    Replace All ({csvPreview.length})
+                  </button>
+                  <button
+                    onClick={() => confirmCSVImport("append")}
+                    style={{
+                      flex: 1,
+                      padding: "12px",
+                      backgroundColor: "var(--primary)",
+                      color: "var(--bg)",
+                      border: "none",
+                      borderRadius: 8,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      fontFamily: "var(--body-font)",
+                    }}
+                  >
+                    Append to Existing
+                  </button>
+                </div>
+              </div>
+            )}
 
             {addingEntrant && (
               <EntrantForm
