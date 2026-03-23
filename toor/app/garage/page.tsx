@@ -153,13 +153,6 @@ export default function Garage() {
   });
 
   useEffect(() => {
-    // Load fonts
-    const link = document.createElement("link");
-    link.href =
-      "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap";
-    link.rel = "stylesheet";
-    document.head.appendChild(link);
-
     // Load data
     const config = getBrandConfig();
     applyBrandConfig(config);

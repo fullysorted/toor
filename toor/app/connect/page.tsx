@@ -65,12 +65,6 @@ export default function ConnectPage() {
 
   // Load branding and entrant data
   useEffect(() => {
-    const link = document.createElement("link");
-    link.href =
-      "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap";
-    link.rel = "stylesheet";
-    document.head.appendChild(link);
-
     const config = getBrandConfig();
     applyBrandConfig(config);
     setBrandConfig(config);

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getBrandConfig, applyBrandConfig } from "@/lib/store";
+import { getBrandConfig, applyBrandConfig, getSponsors, getProgramPages } from "@/lib/store";
 
 // ─── Program Content ─────────────────────────────────────────────────────────
 
@@ -205,6 +205,8 @@ function SectionDivider() {
 export default function ProgramPage() {
   const router = useRouter();
   const [brandConfig, setBrandConfig] = useState<any>(null);
+  const [sponsors, setSponsors] = useState<any[]>([]);
+  const [customPages, setCustomPages] = useState<any[]>([]);
 
   useEffect(() => {
     // Load and apply brand config
@@ -212,12 +214,9 @@ export default function ProgramPage() {
     applyBrandConfig(config);
     setBrandConfig(config);
 
-    // Load Google Fonts
-    const link = document.createElement("link");
-    link.href =
-      "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap";
-    link.rel = "stylesheet";
-    document.head.appendChild(link);
+    // Load admin-managed data
+    setSponsors(getSponsors());
+    setCustomPages(getProgramPages());
   }, []);
 
   if (!brandConfig) return null;
@@ -669,48 +668,132 @@ export default function ProgramPage() {
             gap: 12,
           }}
         >
-          {[
-            "Presenting Sponsor",
-            "Platinum Sponsor",
-            "Gold Sponsor",
-            "Gold Sponsor",
-            "Silver Sponsor",
-            "Silver Sponsor",
-          ].map((tier, i) => (
-            <div
-              key={i}
-              style={{
-                padding: "24px 16px",
-                border: "1px dashed rgba(27, 42, 74, 0.1)",
-                borderRadius: 8,
-                textAlign: "center",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 10,
-                  fontWeight: 600,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                  color: "var(--accent)",
-                  opacity: 0.6,
-                }}
-              >
-                {tier}
-              </div>
-              <div
-                style={{
-                  fontSize: 12,
-                  color: "var(--text)",
-                  opacity: 0.25,
-                  marginTop: 6,
-                }}
-              >
-                Logo Placeholder
-              </div>
-            </div>
-          ))}
+          {sponsors.length > 0
+            ? sponsors.map((sponsor: any, i: number) => (
+                <div
+                  key={sponsor.id || i}
+                  style={{
+                    padding: "24px 16px",
+                    border: "1px solid rgba(27, 42, 74, 0.08)",
+                    borderRadius: 8,
+                    textAlign: "center",
+                  }}
+                >
+                  {sponsor.photo ? (
+                    <img
+                      src={sponsor.photo}
+                      alt={sponsor.name}
+                      style={{
+                        maxWidth: "100%",
+                        maxHeight: 60,
+                        objectFit: "contain",
+                        marginBottom: 8,
+                      }}
+                    />
+                  ) : null}
+                  <div
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 600,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      color: "var(--accent)",
+                      opacity: 0.6,
+                    }}
+                  >
+                    {sponsor.tier || "Sponsor"}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: "var(--primary)",
+                      fontWeight: 500,
+                      marginTop: 4,
+                    }}
+                  >
+                    {sponsor.name}
+                  </div>
+                </div>
+              ))
+            : [
+                "Presenting Sponsor",
+                "Platinum Sponsor",
+                "Gold Sponsor",
+                "Gold Sponsor",
+                "Silver Sponsor",
+                "Silver Sponsor",
+              ].map((tier, i) => (
+                <div
+                  key={i}
+                  style={{
+                    padding: "24px 16px",
+                    border: "1px dashed rgba(27, 42, 74, 0.1)",
+                    borderRadius: 8,
+                    textAlign: "center",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 600,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      color: "var(--accent)",
+                      opacity: 0.6,
+                    }}
+                  >
+                    {tier}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "var(--text)",
+                      opacity: 0.25,
+                      marginTop: 6,
+                    }}
+                  >
+                    Logo Placeholder
+                  </div>
+                </div>
+              ))}
         </div>
+
+        {/* Admin-Managed Program Content */}
+        {customPages.length > 0 && (
+          <>
+            <SectionDivider />
+            <h2 style={sectionHeadingStyle}>Additional Information</h2>
+            {customPages.map((page: any, i: number) => (
+              <div key={page.id || i} style={{ marginTop: 20 }}>
+                <h3
+                  style={{
+                    fontFamily: "var(--heading-font)",
+                    fontSize: 22,
+                    fontWeight: 500,
+                    color: "var(--primary)",
+                    margin: "0 0 12px",
+                  }}
+                >
+                  {page.title}
+                </h3>
+                {page.photo && (
+                  <img
+                    src={page.photo}
+                    alt={page.title}
+                    style={{
+                      width: "100%",
+                      borderRadius: 8,
+                      marginBottom: 14,
+                    }}
+                  />
+                )}
+                <p style={{ ...bodyStyle, whiteSpace: "pre-wrap" }}>
+                  {page.content}
+                </p>
+              </div>
+            ))}
+          </>
+        )}
 
         {/* Closing */}
         <SectionDivider />

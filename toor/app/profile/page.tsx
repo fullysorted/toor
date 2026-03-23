@@ -6,6 +6,8 @@ import {
   getBrandConfig,
   applyBrandConfig,
   setCurrentUser,
+  getCurrentUser,
+  getUserEntry,
   setUserEntry,
   getActiveTenantId,
   getClasses,
@@ -72,13 +74,6 @@ export default function ProfilePage() {
   };
 
   useEffect(() => {
-    // Load fonts
-    const link = document.createElement("link");
-    link.href =
-      "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap";
-    link.rel = "stylesheet";
-    document.head.appendChild(link);
-
     // Load brand config and apply
     const config = getBrandConfig();
     applyBrandConfig(config);
@@ -87,6 +82,28 @@ export default function ProfilePage() {
     // Load classes from store
     const classList = getClasses();
     setClasses(classList);
+
+    // Pre-fill if user has existing profile data
+    const existingUser = getCurrentUser();
+    if (existingUser) {
+      if (existingUser.name) setName(existingUser.name);
+      if (existingUser.hometown) setHometown(existingUser.hometown);
+      if (existingUser.years_collecting) setYearsCollecting(String(existingUser.years_collecting));
+      if (existingUser.bio) setBio(existingUser.bio);
+      if (existingUser.photo_url) setProfilePhoto(existingUser.photo_url);
+    }
+
+    // Pre-fill event entry if exists
+    const existingEntry = getUserEntry();
+    if (existingEntry && existingEntry.car) {
+      if (existingEntry.car.year) setCarYear(String(existingEntry.car.year));
+      if (existingEntry.car.make) setCarMake(existingEntry.car.make);
+      if (existingEntry.car.model) setCarModel(existingEntry.car.model);
+      if (existingEntry.car.color) setCarColor(existingEntry.car.color);
+      if (existingEntry.entry_class) setEntryClass(existingEntry.entry_class);
+      if (existingEntry.entry_number) setEntryNumber(String(existingEntry.entry_number));
+      if (existingEntry.photo_url) setCarPhoto(existingEntry.photo_url);
+    }
   }, []);
 
   useEffect(() => {

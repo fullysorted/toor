@@ -589,6 +589,7 @@ export default function HomePage() {
                 </div>
                 {event.event_id.includes("sat-am") && (
                   <button
+                    onClick={() => router.push("/navigate")}
                     style={{
                       marginTop: 14,
                       width: "100%",
