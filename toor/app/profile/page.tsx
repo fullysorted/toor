@@ -35,6 +35,42 @@ export default function ProfilePage() {
 
   const [classes, setClasses] = useState<string[]>([]);
 
+  // Photo state
+  const [profilePhoto, setProfilePhoto] = useState<string>("");
+  const [carPhoto, setCarPhoto] = useState<string>("");
+  const profilePhotoRef = useRef<HTMLInputElement>(null);
+  const carPhotoRef = useRef<HTMLInputElement>(null);
+
+  const handlePhotoSelect = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    setter: (val: string) => void
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Resize to max 600px and compress
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX = 600;
+        let w = img.width;
+        let h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = (h / w) * MAX; w = MAX; }
+          else { w = (w / h) * MAX; h = MAX; }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx?.drawImage(img, 0, 0, w, h);
+        setter(canvas.toDataURL("image/jpeg", 0.8));
+      };
+      img.src = ev.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
   useEffect(() => {
     // Load fonts
     const link = document.createElement("link");
@@ -75,7 +111,7 @@ export default function ProfilePage() {
       hometown: hometown.trim(),
       years_collecting: parseInt(yearsCollecting) || 0,
       bio: bio.trim(),
-      photo_url: "",
+      photo_url: profilePhoto,
       updated_at: new Date().toISOString(),
     };
     setCurrentUser(userProfile);
@@ -93,6 +129,7 @@ export default function ProfilePage() {
       },
       entry_class: entryClass,
       entry_number: entryNumber.trim(),
+      photo_url: carPhoto,
       status: "Pending",
       created_at: new Date().toISOString(),
     };
@@ -373,7 +410,15 @@ export default function ProfilePage() {
               every concours.
             </p>
 
-            {/* Photo Placeholder */}
+            {/* Photo Upload */}
+            <input
+              ref={profilePhotoRef}
+              type="file"
+              accept="image/*"
+              capture="user"
+              style={{ display: "none" }}
+              onChange={(e) => handlePhotoSelect(e, setProfilePhoto)}
+            />
             <div
               style={{
                 display: "flex",
@@ -382,6 +427,7 @@ export default function ProfilePage() {
               }}
             >
               <div
+                onClick={() => profilePhotoRef.current?.click()}
                 style={{
                   width: 96,
                   height: 96,
@@ -397,31 +443,47 @@ export default function ProfilePage() {
                   transition: "opacity 0.2s",
                 }}
               >
-                <svg
-                  width="28"
-                  height="28"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="var(--accent)"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
-                <span
-                  style={{
-                    fontSize: 9,
-                    fontWeight: 500,
-                    letterSpacing: "0.08em",
-                    color: "var(--accent)",
-                    marginTop: 4,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Add Photo
-                </span>
+                {profilePhoto ? (
+                  <img
+                    src={profilePhoto}
+                    alt="Profile"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      position: "absolute",
+                      inset: 0,
+                    }}
+                  />
+                ) : (
+                  <>
+                    <svg
+                      width="28"
+                      height="28"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="var(--accent)"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                    <span
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 500,
+                        letterSpacing: "0.08em",
+                        color: "var(--accent)",
+                        marginTop: 4,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      Add Photo
+                    </span>
+                  </>
+                )}
               </div>
             </div>
 
@@ -590,11 +652,20 @@ export default function ProfilePage() {
               . This is tied to this event only.
             </p>
 
-            {/* Car Illustration Placeholder */}
+            {/* Car Photo Upload */}
+            <input
+              ref={carPhotoRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style={{ display: "none" }}
+              onChange={(e) => handlePhotoSelect(e, setCarPhoto)}
+            />
             <div
+              onClick={() => carPhotoRef.current?.click()}
               style={{
                 width: "100%",
-                height: 140,
+                height: 180,
                 borderRadius: 12,
                 backgroundColor: "var(--primary)",
                 marginBottom: 32,
@@ -604,45 +675,63 @@ export default function ProfilePage() {
                 justifyContent: "center",
                 position: "relative",
                 overflow: "hidden",
+                cursor: "pointer",
               }}
             >
-              {/* Subtle diagonal lines */}
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  opacity: 0.06,
-                  backgroundImage: `repeating-linear-gradient(-35deg, transparent, transparent 20px, var(--accent) 20px, var(--accent) 21px)`,
-                }}
-              />
-              <svg
-                width="48"
-                height="48"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="var(--accent)"
-                strokeWidth="1.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ position: "relative", zIndex: 1 }}
-              >
-                <path d="M5 17h14M5 17a2 2 0 0 1-2-2v-2a1 1 0 0 1 1-1h1l2.5-4.5A1 1 0 0 1 8.4 7h7.2a1 1 0 0 1 .9.5L19 12h1a1 1 0 0 1 1 1v2a2 2 0 0 1-2 2M5 17a2 2 0 1 0 4 0M15 17a2 2 0 1 0 4 0M9 17h6" />
-              </svg>
-              <span
-                style={{
-                  fontSize: 10,
-                  fontWeight: 500,
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                  color: "var(--accent)",
-                  marginTop: 8,
-                  position: "relative",
-                  zIndex: 1,
-                  opacity: 0.7,
-                }}
-              >
-                Tap to add a photo of your entry
-              </span>
+              {carPhoto ? (
+                <img
+                  src={carPhoto}
+                  alt="Car entry"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    position: "absolute",
+                    inset: 0,
+                  }}
+                />
+              ) : (
+                <>
+                  {/* Subtle diagonal lines */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      opacity: 0.06,
+                      backgroundImage: `repeating-linear-gradient(-35deg, transparent, transparent 20px, var(--accent) 20px, var(--accent) 21px)`,
+                    }}
+                  />
+                  <svg
+                    width="48"
+                    height="48"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="var(--accent)"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{ position: "relative", zIndex: 1 }}
+                  >
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                    <circle cx="12" cy="13" r="4" />
+                  </svg>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 500,
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                      color: "var(--accent)",
+                      marginTop: 8,
+                      position: "relative",
+                      zIndex: 1,
+                      opacity: 0.7,
+                    }}
+                  >
+                    Tap to add a photo of your entry
+                  </span>
+                </>
+              )}
             </div>
 
             {/* Year + Make Row */}
