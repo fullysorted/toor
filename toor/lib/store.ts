@@ -76,6 +76,15 @@ export function getCurrentUser() {
 
 export function setCurrentUser(user: any) {
   localStorage.setItem("toor_platform_current_user", JSON.stringify(user));
+  // Persist a backup so profile survives sign-out/sign-in cycles
+  if (user && user.name) {
+    localStorage.setItem("toor_platform_user_profile_backup", JSON.stringify(user));
+  }
+}
+
+export function signOut() {
+  // Remove the session but keep the profile backup for re-login
+  localStorage.removeItem("toor_platform_current_user");
 }
 
 // ─── User Entry (tenant-scoped) ──────────────────────────────────────────────
