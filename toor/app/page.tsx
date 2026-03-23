@@ -27,6 +27,17 @@ export default function SplashPage() {
       router.push("/home");
       return;
     }
+    // Also check backup profile (in case they signed out but came back)
+    const backupRaw = localStorage.getItem("toor_platform_user_profile_backup");
+    if (backupRaw) {
+      const backup = JSON.parse(backupRaw);
+      if (backup && backup.name) {
+        // Restore and skip to home
+        setCurrentUser(backup);
+        router.push("/home");
+        return;
+      }
+    }
 
     setTimeout(() => setIsLoading(false), 600);
   }, []);
@@ -34,11 +45,16 @@ export default function SplashPage() {
   const handleSignIn = (method: string) => {
     setLoginState("authenticating");
 
-    // Check if returning user (already has a name set)
+    // Check if returning user — look at both current user AND backup profile
     const existingUser = getCurrentUser();
-    const isReturning = existingUser && existingUser.name;
+    const backupRaw = typeof window !== "undefined" ? localStorage.getItem("toor_platform_user_profile_backup") : null;
+    const backupUser = backupRaw ? JSON.parse(backupRaw) : null;
+    const returningUser = (existingUser && existingUser.name) ? existingUser : (backupUser && backupUser.name) ? backupUser : null;
 
-    if (!isReturning) {
+    if (returningUser) {
+      // Restore the user profile (handles sign-out + sign-back-in flow)
+      setCurrentUser({ ...returningUser, auth_method: method });
+    } else {
       setCurrentUser({
         user_id: "user-current",
         name: "",
@@ -53,7 +69,7 @@ export default function SplashPage() {
 
     setTimeout(() => {
       setLoginState("done");
-      setTimeout(() => router.push(isReturning ? "/home" : "/profile"), 800);
+      setTimeout(() => router.push(returningUser ? "/home" : "/profile"), 800);
     }, 1200);
   };
 
@@ -73,7 +89,7 @@ export default function SplashPage() {
           <path d="M14 24l7 7 13-13" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <p style={{ fontFamily: "var(--heading-font)", fontSize: 22 }}>Welcome to {brandConfig.event_name}</p>
-        <p className="text-sm opacity-70">{getCurrentUser()?.name ? "Welcome back…" : "Proceeding to profile setup…"}</p>
+        <p className="text-sm opacity-70">{getCurrentUser()?.name ? "Welcome back\u2026" : "Proceeding to profile setup\u2026"}</p>
       </div>
     );
   }
@@ -129,7 +145,7 @@ export default function SplashPage() {
               <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.997 8.997 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332Z" fill="#FBBC05"/>
               <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58Z" fill="#EA4335"/>
             </svg>
-            {loginState === "authenticating" ? "Signing In…" : "Sign in with Google"}
+            {loginState === "authenticating" ? "Signing In\u2026" : "Sign in with Google"}
           </button>
 
           <button
@@ -144,7 +160,7 @@ export default function SplashPage() {
 
         {/* Footer */}
         <p className="mt-12 text-[11px] tracking-[0.06em] opacity-35" style={{ color: "var(--bg)" }}>
-          Powered by Toor · A Fully Sorted Company
+          Powered by Toor \u00b7 A Fully Sorted Company
         </p>
       </div>
 
