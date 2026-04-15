@@ -1,672 +1,826 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
-import {
-  getBrandConfig,
-  applyBrandConfig,
-  getWaypoints,
-  getEntrants,
-} from "@/lib/store";
+import React, { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import BottomNav from '@/components/BottomNav';
+import { getBrandConfig, applyBrandConfig } from '@/lib/store';
 
-// ─── Types ──────────────────────────────────────────────────────────────────
-
+// Types
 interface Waypoint {
-  id?: string;
-  stop?: number;
   name: string;
-  time: string;
-  location: string;
-  description?: string;
-  lat?: number;
-  lng?: number;
+  lat: number;
+  lng: number;
+  label: string;
 }
 
-// ─── GPS Coordinates for Tour Stops ─────────────────────────────────────────
-
-const STOP_COORDS: Record<string, [number, number]> = {
-  "Prospect Street, La Jolla": [32.8502, -117.2713],
-  "Private garage, Rancho Santa Fe": [33.0203, -117.1726],
-  "Torrey Pines Gliderport": [32.8899, -117.2510],
-  "Coast Highway through Del Mar": [32.9537, -117.2611],
-  "San Dieguito Heritage Museum, Encinitas": [32.9940, -117.2623],
-  "Private Estate, Rancho Santa Fe": [33.0153, -117.1826],
-};
-
-function getCoords(wp: Waypoint): [number, number] {
-  if (wp.lat && wp.lng) return [wp.lat, wp.lng];
-  return STOP_COORDS[wp.location] || [32.85, -117.27];
+interface Direction {
+  stepNumber: number;
+  text: string;
+  mainAction: string;
+  detail: string;
+  isWaypoint: boolean;
+  waypointName?: string;
+  directionType: 'left' | 'right' | 'straight' | 'continue';
 }
 
-import BottomNav from "@/components/BottomNav";
+// Major stops for routing and markers
+const MAJOR_STOPS: Waypoint[] = [
+  {
+    name: 'La Valencia Hotel',
+    lat: 32.8495,
+    lng: -117.2740,
+    label: 'S',
+  },
+  {
+    name: 'Moonlight Beach',
+    lat: 33.0441,
+    lng: -117.2957,
+    label: '1',
+  },
+  {
+    name: 'Harvest Ranch Market',
+    lat: 33.0370,
+    lng: -117.2715,
+    label: '2',
+  },
+  {
+    name: 'Private Estate',
+    lat: 33.0130,
+    lng: -117.1900,
+    label: '3',
+  },
+  {
+    name: 'RSF Karting Club',
+    lat: 33.0190,
+    lng: -117.1450,
+    label: 'F',
+  },
+];
 
-// ─── Screen 4: Navigate ──────────────────────────────────────────────────────
+// All 27 turn-by-turn directions
+const DIRECTIONS: Direction[] = [
+  {
+    stepNumber: 1,
+    text: 'Depart La Valencia Hotel â Head south on Prospect St, then left on Prospect Place',
+    mainAction: 'Depart La Valencia Hotel',
+    detail: 'Head south on Prospect St, then left on Prospect Place',
+    isWaypoint: false,
+    directionType: 'straight',
+  },
+  {
+    stepNumber: 2,
+    text: 'Left on Torrey Pines Rd â Head north',
+    mainAction: 'Left on Torrey Pines Rd',
+    detail: 'Head north',
+    isWaypoint: false,
+    directionType: 'left',
+  },
+  {
+    stepNumber: 3,
+    text: 'Continue north â Torrey Pines Rd becomes N. Torrey Pines Rd, then South Camino del Mar / Hwy 101 â coastal route, no freeway',
+    mainAction: 'Continue north',
+    detail: 'Torrey Pines Rd becomes N. Torrey Pines Rd, then South Camino del Mar / Hwy 101 â coastal route, no freeway',
+    isWaypoint: false,
+    directionType: 'straight',
+  },
+  {
+    stepNumber: 4,
+    text: 'Left on D St â Into Encinitas',
+    mainAction: 'Left on D St',
+    detail: 'Into Encinitas',
+    isWaypoint: false,
+    directionType: 'left',
+  },
+  {
+    stepNumber: 5,
+    text: 'WAYPOINT 1 â Moonlight Beach, 351 C St, Encinitas â Right on 4th St',
+    mainAction: 'WAYPOINT 1 â Moonlight Beach',
+    detail: '351 C St, Encinitas â Right on 4th St',
+    isWaypoint: true,
+    waypointName: 'Moonlight Beach',
+    directionType: 'right',
+  },
+  {
+    stepNumber: 6,
+    text: 'Left on C St â Continue south',
+    mainAction: 'Left on C St',
+    detail: 'Continue south',
+    isWaypoint: false,
+    directionType: 'left',
+  },
+  {
+    stepNumber: 7,
+    text: 'Left on 3rd St',
+    mainAction: 'Left on 3rd St',
+    detail: '',
+    isWaypoint: false,
+    directionType: 'left',
+  },
+  {
+    stepNumber: 8,
+    text: 'Right on B St â Becomes Encinitas Blvd',
+    mainAction: 'Right on B St',
+    detail: 'Becomes Encinitas Blvd',
+    isWaypoint: false,
+    directionType: 'right',
+  },
+  {
+    stepNumber: 9,
+    text: 'Continue on Encinitas Blvd â Becomes South Rancho Santa Fe Farms Rd',
+    mainAction: 'Continue on Encinitas Blvd',
+    detail: 'Becomes South Rancho Santa Fe Farms Rd',
+    isWaypoint: false,
+    directionType: 'straight',
+  },
+  {
+    stepNumber: 10,
+    text: 'WAYPOINT 2 â Harvest Ranch Market â Right',
+    mainAction: 'WAYPOINT 2 â Harvest Ranch Market',
+    detail: 'Right',
+    isWaypoint: true,
+    waypointName: 'Harvest Ranch Market',
+    directionType: 'right',
+  },
+  {
+    stepNumber: 11,
+    text: 'Right on La Bajada â Into Rancho Santa Fe',
+    mainAction: 'Right on La Bajada',
+    detail: 'Into Rancho Santa Fe',
+    isWaypoint: false,
+    directionType: 'right',
+  },
+  {
+    stepNumber: 12,
+    text: 'Continue on Los Morros',
+    mainAction: 'Continue on Los Morros',
+    detail: '',
+    isWaypoint: false,
+    directionType: 'straight',
+  },
+  {
+    stepNumber: 13,
+    text: 'Continue on La Granada',
+    mainAction: 'Continue on La Granada',
+    detail: '',
+    isWaypoint: false,
+    directionType: 'straight',
+  },
+  {
+    stepNumber: 14,
+    text: 'Right on Paseo Delicias',
+    mainAction: 'Right on Paseo Delicias',
+    detail: '',
+    isWaypoint: false,
+    directionType: 'right',
+  },
+  {
+    stepNumber: 15,
+    text: 'Right on Ave De Acacias',
+    mainAction: 'Right on Ave De Acacias',
+    detail: '',
+    isWaypoint: false,
+    directionType: 'right',
+  },
+  {
+    stepNumber: 16,
+    text: 'Left on El Tordo',
+    mainAction: 'Left on El Tordo',
+    detail: '',
+    isWaypoint: false,
+    directionType: 'left',
+  },
+  {
+    stepNumber: 17,
+    text: 'Left on Linea Del Cielo',
+    mainAction: 'Left on Linea Del Cielo',
+    detail: '',
+    isWaypoint: false,
+    directionType: 'left',
+  },
+  {
+    stepNumber: 18,
+    text: 'Left on Paseo Delicias',
+    mainAction: 'Left on Paseo Delicias',
+    detail: '',
+    isWaypoint: false,
+    directionType: 'left',
+  },
+  {
+    stepNumber: 19,
+    text: 'Right on La Granada',
+    mainAction: 'Right on La Granada',
+    detail: '',
+    isWaypoint: false,
+    directionType: 'right',
+  },
+  {
+    stepNumber: 20,
+    text: 'Left on Via De La Valle',
+    mainAction: 'Left on Via De La Valle',
+    detail: '',
+    isWaypoint: false,
+    directionType: 'left',
+  },
+  {
+    stepNumber: 21,
+    text: 'Right on Las Colinas',
+    mainAction: 'Right on Las Colinas',
+    detail: '',
+    isWaypoint: false,
+    directionType: 'right',
+  },
+  {
+    stepNumber: 22,
+    text: 'WAYPOINT 3 â 16503 Los Barbos, Rancho Santa Fe â Right on Los Barbos',
+    mainAction: 'WAYPOINT 3 â Private Estate',
+    detail: '16503 Los Barbos, Rancho Santa Fe â Right on Los Barbos',
+    isWaypoint: true,
+    waypointName: 'Private Estate',
+    directionType: 'right',
+  },
+  {
+    stepNumber: 23,
+    text: 'Depart north on Los Barbos â Left on Las Colinas, right on Via De La Valle',
+    mainAction: 'Depart north on Los Barbos',
+    detail: 'Left on Las Colinas, right on Via De La Valle',
+    isWaypoint: false,
+    directionType: 'straight',
+  },
+  {
+    stepNumber: 24,
+    text: 'Right on La Granada â Through RSF village core on Paseo Delicias',
+    mainAction: 'Right on La Granada',
+    detail: 'Through RSF village core on Paseo Delicias',
+    isWaypoint: false,
+    directionType: 'right',
+  },
+  {
+    stepNumber: 25,
+    text: 'Right on Paseo Delicias',
+    mainAction: 'Right on Paseo Delicias',
+    detail: '',
+    isWaypoint: false,
+    directionType: 'right',
+  },
+  {
+    stepNumber: 26,
+    text: 'North on El Camino Del Norte â Scenic rolling hills through the ranch',
+    mainAction: 'North on El Camino Del Norte',
+    detail: 'Scenic rolling hills through the ranch',
+    isWaypoint: false,
+    directionType: 'straight',
+  },
+  {
+    stepNumber: 27,
+    text: 'FINISH â RSF Karting Club, 18029 Pacifica Ranch Dr â Right on Pacifica Ranch Dr',
+    mainAction: 'FINISH â RSF Karting Club',
+    detail: '18029 Pacifica Ranch Dr â Right on Pacifica Ranch Dr',
+    isWaypoint: true,
+    waypointName: 'RSF Karting Club',
+    directionType: 'right',
+  },
+];
 
-export default function NavigatePage() {
-  const router = useRouter();
-  const [brandConfig, setBrandConfig] = useState<any>(null);
-  const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
-  const [currentStop, setCurrentStop] = useState(0);
-  const [showRadar, setShowRadar] = useState(false);
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
-  const [mapReady, setMapReady] = useState(false);
+// Direction icon component
+function DirectionIcon({ type }: { type: 'left' | 'right' | 'straight' | 'continue' }) {
+  const svgSize = 20;
+  const strokeWidth = 2;
 
-  // Load data
-  useEffect(() => {
-    const config = getBrandConfig();
-    applyBrandConfig(config);
-    setBrandConfig(config);
-    setWaypoints(getWaypoints(config.tenant_id));
-  }, []);
-
-  // Initialize Leaflet map
-  useEffect(() => {
-    if (!brandConfig || waypoints.length === 0 || mapInstanceRef.current) return;
-
-    // Load Leaflet CSS
-    const linkEl = document.createElement("link");
-    linkEl.rel = "stylesheet";
-    linkEl.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css";
-    document.head.appendChild(linkEl);
-
-    // Load Leaflet JS
-    const scriptEl = document.createElement("script");
-    scriptEl.src = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";
-    scriptEl.onload = () => {
-      initMap();
-    };
-    document.head.appendChild(scriptEl);
-
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-    };
-  }, [brandConfig, waypoints]);
-
-  function initMap() {
-    if (!mapContainerRef.current || !(window as any).L) return;
-
-    const L = (window as any).L;
-    const coords = waypoints.map(getCoords);
-
-    // Center on the route midpoint
-    const bounds = L.latLngBounds(coords);
-    const map = L.map(mapContainerRef.current, {
-      zoomControl: false,
-      attributionControl: false,
-    }).fitBounds(bounds, { padding: [40, 40] });
-
-    mapInstanceRef.current = map;
-
-    // Elegant dark map tiles (CartoDB Dark Matter)
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-      maxZoom: 18,
-    }).addTo(map);
-
-    // Route polyline
-    const routeLine = L.polyline(coords, {
-      color: "#C9A84C",
-      weight: 3,
-      opacity: 0.8,
-      dashArray: "8, 6",
-      lineCap: "round",
-    }).addTo(map);
-
-    // Waypoint markers
-    markersRef.current = [];
-    coords.forEach((coord: [number, number], i: number) => {
-      const isActive = i === currentStop;
-      const isPast = i < currentStop;
-
-      const markerIcon = L.divIcon({
-        className: "toor-marker",
-        html: `<div class="toor-marker-dot ${isActive ? "active" : ""} ${isPast ? "past" : ""}" data-stop="${i + 1}">
-          ${isActive ? '<div class="toor-pulse"></div>' : ""}
-          <div class="toor-dot-inner">${i + 1}</div>
-        </div>`,
-        iconSize: [36, 36],
-        iconAnchor: [18, 18],
-      });
-
-      const marker = L.marker(coord, { icon: markerIcon }).addTo(map);
-      marker.on("click", () => {
-        setCurrentStop(i);
-      });
-
-      // Tooltip with stop name
-      marker.bindTooltip(waypoints[i]?.name || `Stop ${i + 1}`, {
-        permanent: false,
-        direction: "top",
-        offset: [0, -20],
-        className: "toor-tooltip",
-      });
-
-      markersRef.current.push(marker);
-    });
-
-    // Zoom controls in a better position
-    L.control.zoom({ position: "topright" }).addTo(map);
-
-    setMapReady(true);
+  if (type === 'left') {
+    return (
+      <svg
+        width={svgSize}
+        height={svgSize}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M19 12H5M12 19l-7-7 7-7" />
+      </svg>
+    );
   }
 
-  // Update markers when currentStop changes
+  if (type === 'right') {
+    return (
+      <svg
+        width={svgSize}
+        height={svgSize}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M5 12h14M12 5l7 7-7 7" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg
+      width={svgSize}
+      height={svgSize}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 5v14" />
+    </svg>
+  );
+}
+
+// Leaflet Map Component
+function MapComponent() {
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const map = useRef<any>(null);
+  const leaflet = useRef<any>(null);
+
   useEffect(() => {
-    if (!mapInstanceRef.current || markersRef.current.length === 0 || !(window as any).L) return;
+    // Load Leaflet dynamically
+    const loadLeaflet = async () => {
+      const L = (window as any).L;
+      if (!L) {
+        const leafletScript = document.createElement('script');
+        leafletScript.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        leafletScript.async = true;
+        document.head.appendChild(leafletScript);
 
-    const L = (window as any).L;
-    const coords = waypoints.map(getCoords);
+        leafletScript.onload = () => {
+          const leafletCss = document.createElement('link');
+          leafletCss.rel = 'stylesheet';
+          leafletCss.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+          document.head.appendChild(leafletCss);
 
-    // Update each marker's appearance
-    markersRef.current.forEach((marker: any, i: number) => {
-      const isActive = i === currentStop;
-      const isPast = i < currentStop;
+          initMap();
+        };
+      } else {
+        initMap();
+      }
+    };
 
-      const newIcon = L.divIcon({
-        className: "toor-marker",
-        html: `<div class="toor-marker-dot ${isActive ? "active" : ""} ${isPast ? "past" : ""}" data-stop="${i + 1}">
-          ${isActive ? '<div class="toor-pulse"></div>' : ""}
-          <div class="toor-dot-inner">${i + 1}</div>
-        </div>`,
-        iconSize: [36, 36],
-        iconAnchor: [18, 18],
+    const initMap = () => {
+      const L = (window as any).L;
+      leaflet.current = L;
+
+      if (!mapContainer.current) return;
+
+      // Create map
+      map.current = L.map(mapContainer.current).setView([33.015, -117.22], 11);
+
+      // CartoDB Voyager tiles
+      L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        maxZoom: 20,
+      }).addTo(map.current);
+
+      // Fetch route from OSRM
+      fetchRoute(L);
+
+      // Add markers for major stops
+      addMarkers(L);
+
+      // Add zoom controls
+      map.current.zoomControl.setPosition('bottomright');
+    };
+
+    const fetchRoute = async (L: any) => {
+      try {
+        const coords = MAJOR_STOPS.map((stop) => `${stop.lng},${stop.lat}`).join(';');
+        const response = await fetch(
+          `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`
+        );
+
+        if (!response.ok) throw new Error('OSRM request failed');
+
+        const data = await response.json();
+
+        if (data.routes && data.routes[0]) {
+          const route = data.routes[0];
+          const coordinates = route.geometry.coordinates.map((coord: [number, number]) => [
+            coord[1],
+            coord[0],
+          ]);
+
+          // Draw navy backdrop polyline
+          L.polyline(coordinates, {
+            color: '#1B2A4A',
+            weight: 6,
+            opacity: 1,
+            lineCap: 'round',
+            lineJoin: 'round',
+          }).addTo(map.current);
+
+          // Draw gold route polyline on top
+          L.polyline(coordinates, {
+            color: '#C9A84C',
+            weight: 4,
+            opacity: 1,
+            lineCap: 'round',
+            lineJoin: 'round',
+          }).addTo(map.current);
+
+          // Fit bounds to route with padding
+          const group = L.featureGroup([
+            ...coordinates.map((coord: any) => L.marker(coord)),
+          ]);
+          map.current.fitBounds(group.getBounds().pad(0.1));
+        }
+      } catch (error) {
+        console.error('Error fetching route from OSRM:', error);
+        // Fallback: draw straight polyline between major stops
+        const coordinates = MAJOR_STOPS.map((stop) => [stop.lat, stop.lng]);
+        L.polyline(coordinates, {
+          color: '#1B2A4A',
+          weight: 6,
+          opacity: 1,
+        }).addTo(map.current);
+
+        L.polyline(coordinates, {
+          color: '#C9A84C',
+          weight: 4,
+          opacity: 1,
+        }).addTo(map.current);
+
+        const group = L.featureGroup(coordinates.map((coord: any) => L.marker(coord)));
+        map.current.fitBounds(group.getBounds().pad(0.1));
+      }
+    };
+
+    const addMarkers = (L: any) => {
+      MAJOR_STOPS.forEach((stop, index) => {
+        const html = `
+          <div style="
+            width: 40px;
+            height: 40px;
+            background-color: #1B2A4A;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #C9A84C;
+            font-weight: bold;
+            font-size: 16px;
+            border: 2px solid #C9A84C;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            font-family: var(--body-font, 'Inter', sans-serif);
+            animation: pulse 2s infinite;
+          ">
+            ${stop.label}
+          </div>
+        `;
+
+        const marker = L.marker([stop.lat, stop.lng], {
+          icon: L.divIcon({
+            html: html,
+            iconSize: [40, 40],
+            iconAnchor: [20, 20],
+            className: 'custom-marker',
+          }),
+        }).addTo(map.current);
+
+        marker.bindPopup(`<strong>${stop.name}</strong>`);
       });
+    };
 
-      marker.setIcon(newIcon);
-    });
+    loadLeaflet();
 
-    // Fly to current stop
-    const currentCoord = coords[currentStop];
-    if (currentCoord) {
-      mapInstanceRef.current.flyTo(currentCoord, 14, {
-        duration: 0.8,
-        easeLinearity: 0.5,
-      });
+    return () => {
+      if (map.current) {
+        map.current.remove();
+        map.current = null;
+      }
+    };
+  }, []);
+
+  return (
+    <div
+      ref={mapContainer}
+      style={{
+        width: '100%',
+        height: '55vh',
+        backgroundColor: '#FAF8F4',
+        borderRadius: '0 0 12px 12px',
+      }}
+    />
+  );
+}
+
+// Progress bar component
+function ProgressBar({ activeIndex }: { activeIndex: number }) {
+  const progressLabels = ['Start', 'WP1', 'WP2', 'WP3', 'Finish'];
+
+  const handleDotClick = (index: number) => {
+    const element = document.getElementById(`direction-${DIRECTIONS[index * 6].stepNumber}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-  }, [currentStop, waypoints]);
-
-  // Toggle radar pins
-  useEffect(() => {
-    if (!mapInstanceRef.current || !(window as any).L) return;
-    const L = (window as any).L;
-    const map = mapInstanceRef.current;
-
-    // Remove existing radar markers
-    map.eachLayer((layer: any) => {
-      if (layer._isRadar) map.removeLayer(layer);
-    });
-
-    if (showRadar) {
-      const radarPins = [
-        { lat: 32.852, lng: -117.269, name: "C. Beaumont" },
-        { lat: 32.877, lng: -117.255, name: "T. Chen" },
-        { lat: 32.910, lng: -117.259, name: "M. Vasquez" },
-        { lat: 32.845, lng: -117.274, name: "B. Fitzgerald" },
-      ];
-
-      radarPins.forEach((pin) => {
-        const icon = L.divIcon({
-          className: "toor-radar-pin",
-          html: `<div class="toor-radar-dot">
-            <div class="toor-radar-pulse"></div>
-            <div class="toor-radar-center"></div>
-          </div>`,
-          iconSize: [24, 24],
-          iconAnchor: [12, 12],
-        });
-
-        const m = L.marker([pin.lat, pin.lng], { icon }).addTo(map);
-        m._isRadar = true;
-        m.bindTooltip(pin.name, {
-          permanent: true,
-          direction: "right",
-          offset: [12, 0],
-          className: "toor-radar-tooltip",
-        });
-      });
-    }
-  }, [showRadar]);
-
-  if (!brandConfig) return null;
+  };
 
   return (
     <div
       style={{
-        minHeight: "100vh",
-        backgroundColor: "var(--bg)",
-        fontFamily: "var(--body-font)",
-        paddingBottom: 80,
+        padding: '16px',
+        backgroundColor: '#FAF8F4',
+        borderBottom: '1px solid #E0DDD4',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        justifyContent: 'space-between',
       }}
     >
-      {/* ── Top Bar ── */}
+      {progressLabels.map((label, index) => (
+        <div key={index} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+          <button
+            onClick={() => handleDotClick(index)}
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              border: 'none',
+              backgroundColor: index <= activeIndex ? '#C9A84C' : '#E0DDD4',
+              color: index <= activeIndex ? '#1B2A4A' : '#999',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              fontFamily: 'var(--body-font, "Inter", sans-serif)',
+              transition: 'all 0.3s ease',
+              boxShadow: index === activeIndex ? '0 0 8px rgba(201, 168, 76, 0.6)' : 'none',
+            }}
+          >
+            {label}
+          </button>
+          {index < progressLabels.length - 1 && (
+            <div
+              style={{
+                flex: 1,
+                height: '2px',
+                backgroundColor: index < activeIndex ? '#C9A84C' : '#E0DDD4',
+                margin: '0 8px',
+              }}
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Directions list component
+function DirectionsList() {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const scrollContainer = useRef<HTMLDivElement>(null);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <ProgressBar activeIndex={activeIndex} />
+
       <div
+        ref={scrollContainer}
         style={{
-          position: "sticky",
-          top: 0,
-          zIndex: 10,
-          backgroundColor: "var(--primary)",
-          padding: "14px 20px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
+          flex: 1,
+          overflowY: 'auto',
+          padding: '12px',
+          backgroundColor: '#FFFFFF',
+        }}
+        onScroll={() => {
+          // Update active index based on scroll position
+          if (scrollContainer.current) {
+            const scrollTop = scrollContainer.current.scrollTop;
+            const estimatedIndex = Math.floor(scrollTop / 80);
+            setActiveIndex(Math.min(estimatedIndex, 4));
+          }
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <button
-            onClick={() => router.push("/home")}
+        {DIRECTIONS.map((direction, idx) => (
+          <div
+            key={direction.stepNumber}
+            id={`direction-${direction.stepNumber}`}
             style={{
-              backgroundColor: "transparent",
-              border: "none",
-              cursor: "pointer",
-              padding: 4,
-              display: "flex",
-              alignItems: "center",
+              marginBottom: '12px',
+              borderRadius: '8px',
+              overflow: 'hidden',
+              backgroundColor: direction.isWaypoint ? '#FAF8F4' : 'transparent',
+              border: direction.isWaypoint ? '2px solid #C9A84C' : 'none',
+              padding: direction.isWaypoint ? '12px' : '0',
             }}
-            aria-label="Go back"
           >
-            <svg
-              width="20" height="20" viewBox="0 0 24 24" fill="none"
-              stroke="var(--bg)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-            >
-              <path d="M19 12H5M12 5l-7 7 7 7" />
-            </svg>
-          </button>
-          <div>
-            <div style={{
-              fontFamily: "var(--heading-font)", fontSize: 16,
-              color: "var(--bg)", fontWeight: 400,
-            }}>
-              Tour d&apos;Elegance
-            </div>
-            <div style={{ fontSize: 11, color: "var(--bg)", opacity: 0.5 }}>
-              Saturday · Departs 7:00 AM
-            </div>
-          </div>
-        </div>
-
-        {/* Group Radar Toggle */}
-        <button
-          onClick={() => setShowRadar(!showRadar)}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            padding: "7px 14px",
-            backgroundColor: showRadar ? "var(--accent)" : "rgba(250, 248, 244, 0.1)",
-            color: showRadar ? "var(--primary)" : "var(--bg)",
-            border: showRadar ? "none" : "1px solid rgba(250, 248, 244, 0.2)",
-            borderRadius: 20,
-            fontFamily: "var(--body-font)",
-            fontSize: 11,
-            fontWeight: 500,
-            cursor: "pointer",
-            transition: "all 0.2s",
-          }}
-          aria-pressed={showRadar}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="2" />
-            <path d="M16.24 7.76a6 6 0 0 1 0 8.49" />
-            <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-          </svg>
-          Radar {showRadar ? "On" : "Off"}
-        </button>
-      </div>
-
-      {/* ── Interactive Map ── */}
-      <div style={{ padding: "0", position: "relative" }}>
-        <div
-          ref={mapContainerRef}
-          style={{
-            width: "100%",
-            height: 340,
-            backgroundColor: "var(--primary)",
-          }}
-        />
-        {!mapReady && (
-          <div style={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: "var(--primary)",
-          }}>
-            <div style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 12,
-            }}>
-              <div style={{
-                width: 32, height: 32,
-                border: "2px solid transparent",
-                borderTopColor: "var(--accent)",
-                borderRadius: "50%",
-                animation: "spin 1s linear infinite",
-              }} />
-              <span style={{
-                fontSize: 12, color: "var(--bg)", opacity: 0.5,
-                fontFamily: "var(--body-font)",
-              }}>Loading map...</span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ── Stop Counter ── */}
-      <div style={{ textAlign: "center", padding: "16px 24px 8px" }}>
-        <span style={{
-          fontSize: 11, fontWeight: 600, letterSpacing: "0.12em",
-          textTransform: "uppercase", color: "var(--accent)",
-        }}>
-          Stop {currentStop + 1} of {waypoints.length}
-        </span>
-      </div>
-
-      {/* ── Waypoint List ── */}
-      <div style={{ padding: "8px 20px 24px" }}>
-        {waypoints.map((wp, i) => {
-          const isActive = i === currentStop;
-          const isPast = i < currentStop;
-          return (
-            <div
-              key={i}
-              onClick={() => setCurrentStop(i)}
-              style={{
-                display: "flex",
-                gap: 16,
-                padding: "16px 0",
-                borderBottom: i < waypoints.length - 1
-                  ? "1px solid rgba(27, 42, 74, 0.06)" : "none",
-                opacity: isPast ? 0.45 : 1,
-                cursor: "pointer",
-                transition: "opacity 0.2s",
-              }}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") setCurrentStop(i);
-              }}
-            >
-              {/* Timeline dot */}
-              <div style={{
-                display: "flex", flexDirection: "column",
-                alignItems: "center", width: 24, flexShrink: 0, paddingTop: 2,
-              }}>
-                <div style={{
-                  width: isActive ? 16 : 10,
-                  height: isActive ? 16 : 10,
-                  borderRadius: "50%",
-                  backgroundColor: isActive ? "var(--accent)" : isPast ? "var(--accent)" : "transparent",
-                  border: "2px solid var(--accent)",
-                  transition: "all 0.2s",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}>
-                  {isPast && (
-                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none"
-                      stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M5 12l5 5L20 7" />
-                    </svg>
+            {direction.isWaypoint ? (
+              // Waypoint card
+              <div>
+                <div
+                  style={{
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    color: '#C9A84C',
+                    fontFamily: 'var(--heading-font, "Cormorant Garamond", serif)',
+                    marginBottom: '8px',
+                  }}
+                >
+                  {direction.waypointName}
+                </div>
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: '#2C2C2C',
+                    fontFamily: 'var(--body-font, "Inter", sans-serif)',
+                    lineHeight: '1.5',
+                  }}
+                >
+                  <strong>{direction.mainAction}</strong>
+                  {direction.detail && (
+                    <>
+                      <br />
+                      {direction.detail}
+                    </>
                   )}
                 </div>
               </div>
-
-              {/* Content */}
-              <div style={{ flex: 1 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <h4 style={{
-                    fontFamily: isActive ? "var(--heading-font)" : "var(--body-font)",
-                    fontSize: isActive ? 19 : 15,
-                    fontWeight: 500,
-                    color: "var(--primary)",
-                    margin: 0,
-                  }}>
-                    {wp.name}
-                  </h4>
-                  <span style={{
-                    fontSize: 12, fontWeight: 500,
-                    color: isActive ? "var(--accent)" : "var(--text)",
-                    opacity: isActive ? 1 : 0.4,
-                    whiteSpace: "nowrap", marginLeft: 12,
-                  }}>
-                    {wp.time}
-                  </span>
+            ) : (
+              // Regular direction card
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '12px',
+                  padding: '8px 0',
+                }}
+              >
+                <div
+                  style={{
+                    flexShrink: 0,
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    backgroundColor: '#1B2A4A',
+                    color: '#C9A84C',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    fontFamily: 'var(--body-font, "Inter", sans-serif)',
+                  }}
+                >
+                  {direction.stepNumber}
                 </div>
-                <p style={{ fontSize: 13, color: "var(--text)", opacity: 0.5, margin: "3px 0 0" }}>
-                  {wp.location}
-                </p>
-                {isActive && wp.description && (
-                  <p style={{
-                    fontSize: 13, color: "var(--text)", opacity: 0.65,
-                    lineHeight: 1.5, marginTop: 8, fontStyle: "italic",
-                  }}>
-                    {wp.description}
-                  </p>
-                )}
+
+                <div style={{ flex: 1 }}>
+                  <div
+                    style={{
+                      fontSize: '13px',
+                      color: '#2C2C2C',
+                      fontFamily: 'var(--body-font, "Inter", sans-serif)',
+                      lineHeight: '1.6',
+                    }}
+                  >
+                    <strong>{direction.mainAction}</strong>
+                    {direction.detail && (
+                      <>
+                        <br />
+                        <span style={{ fontWeight: 'normal' }}>{direction.detail}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    flexShrink: 0,
+                    color: '#1B2A4A',
+                    display: 'flex',
+                    alignItems: 'center',
+                    paddingTop: '2px',
+                  }}
+                >
+                  <DirectionIcon type={direction.directionType} />
+                </div>
               </div>
-            </div>
-          );
-        })}
+            )}
+          </div>
+        ))}
+
+        <div style={{ height: '24px' }} />
+      </div>
+    </div>
+  );
+}
+
+// Main page component
+export default function NavigatePage() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const brand = getBrandConfig();
+    applyBrandConfig(brand);
+  }, []);
+
+  if (!mounted) {
+    return null;
+  }
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        backgroundColor: '#FAF8F4',
+        fontFamily: 'var(--body-font, "Inter", sans-serif)',
+      }}
+    >
+      {/* Top Bar */}
+      <div
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 100,
+          backgroundColor: '#1B2A4A',
+          color: '#FFFFFF',
+          padding: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        }}
+      >
+        <Link
+          href="/home"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '32px',
+            height: '32px',
+            borderRadius: '6px',
+            backgroundColor: 'rgba(255,255,255,0.1)',
+            color: '#FFFFFF',
+            textDecoration: 'none',
+            cursor: 'pointer',
+            transition: 'background-color 0.2s',
+            fontSize: '18px',
+            lineHeight: 1,
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as any).style.backgroundColor = 'rgba(255,255,255,0.2)';
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as any).style.backgroundColor = 'rgba(255,255,255,0.1)';
+          }}
+        >
+          â
+        </Link>
+
+        <h1
+          style={{
+            fontSize: '24px',
+            fontWeight: '600',
+            margin: 0,
+            flex: 1,
+            fontFamily: 'var(--heading-font, "Cormorant Garamond", serif)',
+            letterSpacing: '0.5px',
+          }}
+        >
+          Tour d'Elegance
+        </h1>
       </div>
 
-      {/* ── Bottom Navigation Controls (above nav bar) ── */}
-      <div style={{
-        position: "sticky",
-        bottom: 64,
-        backgroundColor: "var(--bg)",
-        borderTop: "1px solid rgba(27, 42, 74, 0.08)",
-        padding: "12px 20px",
-        display: "flex",
-        gap: 12,
-      }}>
-        <button
-          onClick={() => setCurrentStop(Math.max(0, currentStop - 1))}
-          disabled={currentStop === 0}
-          style={{
-            flex: 1, padding: "14px",
-            backgroundColor: "transparent",
-            color: currentStop === 0 ? "rgba(44, 44, 44, 0.2)" : "var(--accent)",
-            border: `1.5px solid ${currentStop === 0 ? "rgba(44, 44, 44, 0.1)" : "var(--accent)"}`,
-            borderRadius: 8,
-            fontFamily: "var(--body-font)", fontSize: 14, fontWeight: 600,
-            cursor: currentStop === 0 ? "not-allowed" : "pointer",
-            transition: "all 0.2s",
-          }}
-        >
-          ← Previous
-        </button>
-        <button
-          onClick={() => setCurrentStop(Math.min(waypoints.length - 1, currentStop + 1))}
-          disabled={currentStop === waypoints.length - 1}
-          style={{
-            flex: 1, padding: "14px",
-            backgroundColor: currentStop === waypoints.length - 1 ? "rgba(44, 44, 44, 0.08)" : "var(--accent)",
-            color: currentStop === waypoints.length - 1 ? "rgba(44, 44, 44, 0.3)" : "var(--primary)",
-            border: "none",
-            borderRadius: 8,
-            fontFamily: "var(--body-font)", fontSize: 14, fontWeight: 600,
-            cursor: currentStop === waypoints.length - 1 ? "not-allowed" : "pointer",
-            transition: "all 0.2s",
-          }}
-        >
-          Next Stop →
-        </button>
+      {/* Map */}
+      <div style={{ height: '55vh', overflow: 'hidden', borderRadius: '0 0 12px 12px' }}>
+        <MapComponent />
+      </div>
+
+      {/* Directions List */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <DirectionsList />
+      </div>
+
+      {/* Footer Note */}
+      <div
+        style={{
+          padding: '12px 16px',
+          backgroundColor: '#FAF8F4',
+          borderTop: '1px solid #E0DDD4',
+          fontSize: '12px',
+          fontStyle: 'italic',
+          color: '#666666',
+          fontFamily: 'var(--body-font, "Inter", sans-serif)',
+          textAlign: 'center',
+        }}
+      >
+        Please maintain safe following distances and obey all traffic laws. Stay with the group
+        and enjoy the drive.
       </div>
 
       {/* Bottom Nav */}
       <BottomNav active="navigate" />
-
-      {/* ── Custom Marker Styles ── */}
-      <style>{`
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-        button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-        .toor-marker { background: none !important; border: none !important; }
-
-        .toor-marker-dot {
-          position: relative;
-          width: 36px;
-          height: 36px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .toor-dot-inner {
-          width: 24px;
-          height: 24px;
-          border-radius: 50%;
-          background: rgba(27, 42, 74, 0.85);
-          border: 2px solid rgba(201, 168, 76, 0.4);
-          color: rgba(250, 248, 244, 0.6);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 11px;
-          font-weight: 600;
-          font-family: 'Inter', sans-serif;
-          transition: all 0.3s ease;
-          z-index: 2;
-          position: relative;
-        }
-
-        .toor-marker-dot.active .toor-dot-inner {
-          width: 30px;
-          height: 30px;
-          background: #C9A84C;
-          border-color: #C9A84C;
-          color: #1B2A4A;
-          font-size: 13px;
-          box-shadow: 0 0 16px rgba(201, 168, 76, 0.5);
-        }
-
-        .toor-marker-dot.past .toor-dot-inner {
-          background: #C9A84C;
-          border-color: #C9A84C;
-          color: #1B2A4A;
-          opacity: 0.6;
-        }
-
-        .toor-pulse {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          width: 36px;
-          height: 36px;
-          border-radius: 50%;
-          background: rgba(201, 168, 76, 0.25);
-          animation: pulse-ring 2s ease-out infinite;
-          z-index: 1;
-        }
-
-        @keyframes pulse-ring {
-          0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.6; }
-          70% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
-          100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
-        }
-
-        .toor-tooltip {
-          background: #1B2A4A !important;
-          color: #FAF8F4 !important;
-          border: 1px solid rgba(201, 168, 76, 0.3) !important;
-          border-radius: 6px !important;
-          padding: 4px 10px !important;
-          font-family: 'Inter', sans-serif !important;
-          font-size: 11px !important;
-          font-weight: 500 !important;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
-        }
-
-        .toor-tooltip::before {
-          border-top-color: #1B2A4A !important;
-        }
-
-        .toor-radar-pin { background: none !important; border: none !important; }
-
-        .toor-radar-dot {
-          position: relative;
-          width: 24px;
-          height: 24px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .toor-radar-center {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: #C9A84C;
-          z-index: 2;
-          position: relative;
-        }
-
-        .toor-radar-pulse {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          width: 20px;
-          height: 20px;
-          border-radius: 50%;
-          background: rgba(201, 168, 76, 0.2);
-          animation: radar-ping 2.5s ease-out infinite;
-        }
-
-        @keyframes radar-ping {
-          0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0.8; }
-          100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
-        }
-
-        .toor-radar-tooltip {
-          background: rgba(27, 42, 74, 0.9) !important;
-          color: #C9A84C !important;
-          border: none !important;
-          border-radius: 4px !important;
-          padding: 2px 8px !important;
-          font-family: 'Inter', sans-serif !important;
-          font-size: 10px !important;
-          font-weight: 500 !important;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
-        }
-
-        .toor-radar-tooltip::before { display: none !important; }
-
-        .leaflet-control-zoom a {
-          background: rgba(27, 42, 74, 0.85) !important;
-          color: #FAF8F4 !important;
-          border-color: rgba(201, 168, 76, 0.2) !important;
-          width: 32px !important;
-          height: 32px !important;
-          line-height: 32px !important;
-          font-size: 16px !important;
-        }
-
-        .leaflet-control-zoom a:hover {
-          background: rgba(27, 42, 74, 1) !important;
-          color: #C9A84C !important;
-        }
-
-        .leaflet-control-zoom {
-          border: none !important;
-          border-radius: 8px !important;
-          overflow: hidden;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
-          margin-top: 12px !important;
-          margin-right: 12px !important;
-        }
-      `}</style>
     </div>
   );
 }
