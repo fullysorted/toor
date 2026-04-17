@@ -146,11 +146,11 @@ export default function HomePage() {
         display: "flex", alignItems: "center", justifyContent: "space-between",
       }}>
         <div>
-          <div style={{ fontSize: 9, fontWeight: 500, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--accent)", opacity: 0.7 }}>
-            Toor
-          </div>
-          <div style={{ fontFamily: "var(--heading-font)", fontSize: 15, color: "var(--bg)", fontWeight: 400, marginTop: 1 }}>
+          <div style={{ fontFamily: "var(--heading-font)", fontSize: 15, color: "var(--bg)", fontWeight: 400 }}>
             {brandConfig.event_name}
+          </div>
+          <div style={{ fontSize: 9, fontWeight: 500, letterSpacing: "0.05em", color: "var(--accent)", opacity: 0.7, marginTop: 2 }}>
+            Presented by the San Diego Automotive Museum
           </div>
         </div>
 
@@ -517,8 +517,16 @@ export default function HomePage() {
         </button>
       </div>
 
-      {/* ââ Footer ââ */}
-      <div style={{ textAlign: "center", padding: "8px 24px 24px", borderTop: "1px solid rgba(27, 42, 74, 0.06)" }}>
+      {/* ââ Presented By + Footer ââ */}
+      <div style={{ textAlign: "center", padding: "20px 24px 8px", borderTop: "1px solid rgba(27, 42, 74, 0.06)" }}>
+        <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--text)", opacity: 0.3, marginBottom: 10 }}>
+          Presented by
+        </div>
+        <img
+          src="/sdam-logo.svg"
+          alt="San Diego Automotive Museum"
+          style={{ height: 28, opacity: 0.5, marginBottom: 16 }}
+        />
         <p style={{ fontSize: 10, color: "var(--text)", opacity: 0.2, letterSpacing: "0.06em" }}>
           Powered by Toor {"\u00b7"} A Fully Sorted Company
         </p>
