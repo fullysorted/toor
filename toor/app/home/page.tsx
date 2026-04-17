@@ -9,7 +9,6 @@ import {
   getUserEntry,
   getEvents,
   getWaypoints,
-  getEntrants,
   signOut,
 } from "@/lib/store";
 import BottomNav from "@/components/BottomNav";
@@ -69,17 +68,6 @@ function CompassIcon() {
   );
 }
 
-function PeopleIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  );
-}
-
 function BookIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -98,7 +86,6 @@ export default function HomePage() {
   const [entry, setEntry] = useState<any>(null);
   const [events, setEvents] = useState<any[]>([]);
   const [waypoints, setWaypointsList] = useState<any[]>([]);
-  const [entrantCount, setEntrantCount] = useState(0);
   const [showMenu, setShowMenu] = useState(false);
 
   useEffect(() => {
@@ -115,7 +102,6 @@ export default function HomePage() {
     setEntry(getUserEntry());
     setEvents(getEvents());
     setWaypointsList(getWaypoints());
-    setEntrantCount(getEntrants().length);
   }, [router]);
 
   if (!brandConfig || !user) return null;
@@ -192,7 +178,6 @@ export default function HomePage() {
                 </div>
                 {[
                   { label: "Edit Profile", href: "/profile" },
-                  { label: "My Garage", href: "/garage" },
                   { label: "Admin Panel", href: "/admin" },
                 ].map((item) => (
                   <button
@@ -453,10 +438,9 @@ export default function HomePage() {
         }}>
           Quick Access
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           {[
             { label: "Navigate", icon: <CompassIcon />, screen: "navigate" },
-            { label: "Entrants", icon: <PeopleIcon />, screen: "connect" },
             { label: "Program", icon: <BookIcon />, screen: "program" },
           ].map((tile) => (
             <button
@@ -480,41 +464,6 @@ export default function HomePage() {
             </button>
           ))}
         </div>
-      </div>
-
-      {/* ââ Entrant Count ââ */}
-      <div style={{ padding: "0 24px 24px" }}>
-        <button
-          onClick={() => router.push("/connect")}
-          style={{
-            width: "100%",
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "16px 20px",
-            backgroundColor: "#FFFFFF",
-            border: "1px solid rgba(27, 42, 74, 0.06)", borderRadius: 12,
-            cursor: "pointer",
-            boxShadow: "0 1px 3px rgba(27, 42, 74, 0.04)",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{
-              fontFamily: "var(--heading-font)", fontSize: 24, fontWeight: 400, color: "var(--primary)",
-            }}>
-              {entrantCount}
-            </div>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: "var(--primary)", textAlign: "left" }}>
-                Fellow Entrants
-              </div>
-              <div style={{ fontSize: 11, color: "var(--text)", opacity: 0.4, textAlign: "left" }}>
-                View directory & connect
-              </div>
-            </div>
-          </div>
-          <div style={{ color: "var(--text)", opacity: 0.3 }}>
-            <ChevronRight />
-          </div>
-        </button>
       </div>
 
       {/* ââ Presented By + Footer ââ */}
