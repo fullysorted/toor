@@ -6,332 +6,172 @@ import BottomNav from '@/components/BottomNav';
 import { getBrandConfig, applyBrandConfig } from '@/lib/store';
 
 // Types
-interface Waypoint {
+interface MapStop {
   name: string;
   lat: number;
   lng: number;
   label: string;
 }
 
-interface Direction {
-  stepNumber: number;
-  text: string;
-  mainAction: string;
+interface Step {
+  number: number;
+  action: string;
   detail: string;
-  isWaypoint: boolean;
-  waypointName?: string;
-  directionType: 'left' | 'right' | 'straight' | 'continue';
+  directionType: 'left' | 'right' | 'straight' | 'continue' | 'arrive' | 'depart';
 }
 
-// Major stops for routing and markers
-const MAJOR_STOPS: Waypoint[] = [
+interface Stage {
+  number: number;
+  name: string;
+  depart: string;
+  departAddress: string;
+  destination: string;
+  destAddress: string;
+  departureTime: string;
+  steps: Step[];
+}
+
+// 5 key locations for map markers
+const MAP_STOPS: MapStop[] = [
+  { name: 'La Valencia Hotel', lat: 32.8495, lng: -117.2740, label: 'S' },
+  { name: 'Moonlight Beach', lat: 33.0441, lng: -117.2957, label: '1' },
+  { name: 'Harvest Ranch Market', lat: 33.0370, lng: -117.2580, label: '2' },
+  { name: 'Private Estate', lat: 33.0010, lng: -117.1780, label: '3' },
+  { name: 'RSF Karting Club', lat: 33.0550, lng: -117.1350, label: 'F' },
+];
+
+// Extra waypoints for OSRM to follow the actual coastal/rural roads
+const ROUTE_WAYPOINTS = [
+  { lat: 32.8495, lng: -117.2740 },  // Start: La Valencia
+  { lat: 32.9000, lng: -117.2560 },  // Torrey Pines (force coastal)
+  { lat: 32.9590, lng: -117.2650 },  // Del Mar coast (force Hwy 101)
+  { lat: 33.0441, lng: -117.2957 },  // Moonlight Beach
+  { lat: 33.0370, lng: -117.2580 },  // Harvest Ranch Market
+  { lat: 33.0200, lng: -117.2070 },  // RSF village (Paseo Delicias)
+  { lat: 33.0010, lng: -117.1780 },  // Private Estate
+  { lat: 33.0200, lng: -117.2070 },  // Back through RSF village
+  { lat: 33.0450, lng: -117.1750 },  // El Camino Del Norte
+  { lat: 33.0550, lng: -117.1350 },  // Finish: RSF Karting Club
+];
+
+// 4 Tour Stages from the official program
+const STAGES: Stage[] = [
   {
-    name: 'La Valencia Hotel',
-    lat: 32.8495,
-    lng: -117.2740,
-    label: 'S',
+    number: 1,
+    name: 'La Jolla to Moonlight Beach',
+    depart: 'La Valencia Hotel',
+    departAddress: '1132 Prospect St, La Jolla',
+    destination: 'Moonlight Beach',
+    destAddress: '351 C St, Encinitas (parking lot)',
+    departureTime: '8:30 AM',
+    steps: [
+      { number: 1, action: 'Depart La Valencia Hotel', detail: 'Head south on Prospect St, then left on Prospect Place', directionType: 'depart' },
+      { number: 2, action: 'Left on Torrey Pines Rd', detail: 'Head north', directionType: 'left' },
+      { number: 3, action: 'Continue north', detail: 'Torrey Pines Rd becomes N. Torrey Pines Rd, then S. Camino del Mar / Hwy 101 â coastal route, no freeway', directionType: 'straight' },
+      { number: 4, action: 'Left on D St', detail: 'Into Encinitas', directionType: 'left' },
+      { number: 5, action: 'Right on 4th St', detail: 'Arrive at Moonlight Beach, 351 C St, Encinitas', directionType: 'arrive' },
+    ],
   },
   {
-    name: 'Moonlight Beach',
-    lat: 33.0441,
-    lng: -117.2957,
-    label: '1',
+    number: 2,
+    name: 'Moonlight Beach to Harvest Ranch',
+    depart: 'Moonlight Beach',
+    departAddress: '351 C St, Encinitas (parking lot)',
+    destination: 'Harvest Ranch Market',
+    destAddress: '162 S Rancho Santa Fe Rd, Encinitas',
+    departureTime: '9:30 AM',
+    steps: [
+      { number: 1, action: 'Right', detail: 'Depart Moonlight Beach, 351 C St, Encinitas', directionType: 'depart' },
+      { number: 2, action: 'Left on C St', detail: 'Continue south', directionType: 'left' },
+      { number: 3, action: 'Left on 3rd St', detail: '', directionType: 'left' },
+      { number: 4, action: 'Right on B St', detail: 'Becomes Encinitas Blvd', directionType: 'right' },
+      { number: 5, action: 'Continue on Encinitas Blvd', detail: 'Becomes South Rancho Santa Fe Farms Rd', directionType: 'straight' },
+      { number: 6, action: 'Right', detail: 'Arrive at Harvest Ranch Market â 162 S Rancho Santa Fe Rd, Encinitas', directionType: 'arrive' },
+    ],
   },
   {
-    name: 'Harvest Ranch Market',
-    lat: 33.0370,
-    lng: -117.2715,
-    label: '2',
+    number: 3,
+    name: 'Harvest Ranch to Private Estate',
+    depart: 'Harvest Ranch Market',
+    departAddress: '162 S Rancho Santa Fe Rd, Encinitas',
+    destination: 'Private Estate',
+    destAddress: '16503 Los Barbos, Rancho Santa Fe',
+    departureTime: '10:30 AM',
+    steps: [
+      { number: 1, action: 'Right', detail: 'Depart Harvest Ranch Market â 162 S Rancho Santa Fe Rd, Encinitas', directionType: 'depart' },
+      { number: 2, action: 'Right on La Bajada', detail: 'Into Rancho Santa Fe', directionType: 'right' },
+      { number: 3, action: 'Continue on Los Morros', detail: '', directionType: 'straight' },
+      { number: 4, action: 'Continue on La Granada', detail: '', directionType: 'straight' },
+      { number: 5, action: 'Right on Paseo Delicias', detail: '', directionType: 'right' },
+      { number: 6, action: 'Right on Ave De Acacias', detail: '', directionType: 'right' },
+      { number: 7, action: 'Left on El Tordo', detail: '', directionType: 'left' },
+      { number: 8, action: 'Left on Linea Del Cielo', detail: '', directionType: 'left' },
+      { number: 9, action: 'Left on Paseo Delicias', detail: '', directionType: 'left' },
+      { number: 10, action: 'Right on La Granada', detail: '', directionType: 'right' },
+      { number: 11, action: 'Left on Via De La Valle', detail: '', directionType: 'left' },
+      { number: 12, action: 'Right on Las Colinas', detail: '', directionType: 'right' },
+      { number: 13, action: 'Right on Los Barbos', detail: 'Arrive at 16503 Los Barbos, Rancho Santa Fe', directionType: 'arrive' },
+    ],
   },
   {
-    name: 'Private Estate',
-    lat: 33.0130,
-    lng: -117.1900,
-    label: '3',
-  },
-  {
-    name: 'RSF Karting Club',
-    lat: 33.0190,
-    lng: -117.1450,
-    label: 'F',
+    number: 4,
+    name: 'Private Estate to RSF Karting Club',
+    depart: 'Private Estate',
+    departAddress: '16503 Los Barbos, Rancho Santa Fe',
+    destination: 'RSF Karting Club',
+    destAddress: '18029 Pacifica Ranch Dr, Rancho Santa Fe',
+    departureTime: '11:45 AM',
+    steps: [
+      { number: 1, action: 'Right on Los Barbos', detail: '16503 Los Barbos, Rancho Santa Fe', directionType: 'depart' },
+      { number: 2, action: 'Depart north on Los Barbos', detail: '', directionType: 'straight' },
+      { number: 3, action: 'Right on La Granada', detail: '', directionType: 'right' },
+      { number: 4, action: 'Continue on La Granada', detail: '', directionType: 'straight' },
+      { number: 5, action: 'Right on Paseo Delicias', detail: '', directionType: 'right' },
+      { number: 6, action: 'North on El Camino Del Norte', detail: 'Scenic rolling hills through the ranch', directionType: 'straight' },
+      { number: 7, action: 'Right on Pacifica Ranch Dr', detail: '', directionType: 'right' },
+      { number: 8, action: 'FINISH â RSF Karting Club', detail: '18029 Pacifica Ranch Dr', directionType: 'arrive' },
+    ],
   },
 ];
 
-// All 27 turn-by-turn directions
-const DIRECTIONS: Direction[] = [
-  {
-    stepNumber: 1,
-    text: 'Depart La Valencia Hotel â Head south on Prospect St, then left on Prospect Place',
-    mainAction: 'Depart La Valencia Hotel',
-    detail: 'Head south on Prospect St, then left on Prospect Place',
-    isWaypoint: false,
-    directionType: 'straight',
-  },
-  {
-    stepNumber: 2,
-    text: 'Left on Torrey Pines Rd â Head north',
-    mainAction: 'Left on Torrey Pines Rd',
-    detail: 'Head north',
-    isWaypoint: false,
-    directionType: 'left',
-  },
-  {
-    stepNumber: 3,
-    text: 'Continue north â Torrey Pines Rd becomes N. Torrey Pines Rd, then South Camino del Mar / Hwy 101 â coastal route, no freeway',
-    mainAction: 'Continue north',
-    detail: 'Torrey Pines Rd becomes N. Torrey Pines Rd, then South Camino del Mar / Hwy 101 â coastal route, no freeway',
-    isWaypoint: false,
-    directionType: 'straight',
-  },
-  {
-    stepNumber: 4,
-    text: 'Left on D St â Into Encinitas',
-    mainAction: 'Left on D St',
-    detail: 'Into Encinitas',
-    isWaypoint: false,
-    directionType: 'left',
-  },
-  {
-    stepNumber: 5,
-    text: 'WAYPOINT 1 â Moonlight Beach, 351 C St, Encinitas â Right on 4th St',
-    mainAction: 'WAYPOINT 1 â Moonlight Beach',
-    detail: '351 C St, Encinitas â Right on 4th St',
-    isWaypoint: true,
-    waypointName: 'Moonlight Beach',
-    directionType: 'right',
-  },
-  {
-    stepNumber: 6,
-    text: 'Left on C St â Continue south',
-    mainAction: 'Left on C St',
-    detail: 'Continue south',
-    isWaypoint: false,
-    directionType: 'left',
-  },
-  {
-    stepNumber: 7,
-    text: 'Left on 3rd St',
-    mainAction: 'Left on 3rd St',
-    detail: '',
-    isWaypoint: false,
-    directionType: 'left',
-  },
-  {
-    stepNumber: 8,
-    text: 'Right on B St â Becomes Encinitas Blvd',
-    mainAction: 'Right on B St',
-    detail: 'Becomes Encinitas Blvd',
-    isWaypoint: false,
-    directionType: 'right',
-  },
-  {
-    stepNumber: 9,
-    text: 'Continue on Encinitas Blvd â Becomes South Rancho Santa Fe Farms Rd',
-    mainAction: 'Continue on Encinitas Blvd',
-    detail: 'Becomes South Rancho Santa Fe Farms Rd',
-    isWaypoint: false,
-    directionType: 'straight',
-  },
-  {
-    stepNumber: 10,
-    text: 'WAYPOINT 2 â Harvest Ranch Market â Right',
-    mainAction: 'WAYPOINT 2 â Harvest Ranch Market',
-    detail: 'Right',
-    isWaypoint: true,
-    waypointName: 'Harvest Ranch Market',
-    directionType: 'right',
-  },
-  {
-    stepNumber: 11,
-    text: 'Right on La Bajada â Into Rancho Santa Fe',
-    mainAction: 'Right on La Bajada',
-    detail: 'Into Rancho Santa Fe',
-    isWaypoint: false,
-    directionType: 'right',
-  },
-  {
-    stepNumber: 12,
-    text: 'Continue on Los Morros',
-    mainAction: 'Continue on Los Morros',
-    detail: '',
-    isWaypoint: false,
-    directionType: 'straight',
-  },
-  {
-    stepNumber: 13,
-    text: 'Continue on La Granada',
-    mainAction: 'Continue on La Granada',
-    detail: '',
-    isWaypoint: false,
-    directionType: 'straight',
-  },
-  {
-    stepNumber: 14,
-    text: 'Right on Paseo Delicias',
-    mainAction: 'Right on Paseo Delicias',
-    detail: '',
-    isWaypoint: false,
-    directionType: 'right',
-  },
-  {
-    stepNumber: 15,
-    text: 'Right on Ave De Acacias',
-    mainAction: 'Right on Ave De Acacias',
-    detail: '',
-    isWaypoint: false,
-    directionType: 'right',
-  },
-  {
-    stepNumber: 16,
-    text: 'Left on El Tordo',
-    mainAction: 'Left on El Tordo',
-    detail: '',
-    isWaypoint: false,
-    directionType: 'left',
-  },
-  {
-    stepNumber: 17,
-    text: 'Left on Linea Del Cielo',
-    mainAction: 'Left on Linea Del Cielo',
-    detail: '',
-    isWaypoint: false,
-    directionType: 'left',
-  },
-  {
-    stepNumber: 18,
-    text: 'Left on Paseo Delicias',
-    mainAction: 'Left on Paseo Delicias',
-    detail: '',
-    isWaypoint: false,
-    directionType: 'left',
-  },
-  {
-    stepNumber: 19,
-    text: 'Right on La Granada',
-    mainAction: 'Right on La Granada',
-    detail: '',
-    isWaypoint: false,
-    directionType: 'right',
-  },
-  {
-    stepNumber: 20,
-    text: 'Left on Via De La Valle',
-    mainAction: 'Left on Via De La Valle',
-    detail: '',
-    isWaypoint: false,
-    directionType: 'left',
-  },
-  {
-    stepNumber: 21,
-    text: 'Right on Las Colinas',
-    mainAction: 'Right on Las Colinas',
-    detail: '',
-    isWaypoint: false,
-    directionType: 'right',
-  },
-  {
-    stepNumber: 22,
-    text: 'WAYPOINT 3 â 16503 Los Barbos, Rancho Santa Fe â Right on Los Barbos',
-    mainAction: 'WAYPOINT 3 â Private Estate',
-    detail: '16503 Los Barbos, Rancho Santa Fe â Right on Los Barbos',
-    isWaypoint: true,
-    waypointName: 'Private Estate',
-    directionType: 'right',
-  },
-  {
-    stepNumber: 23,
-    text: 'Depart north on Los Barbos â Left on Las Colinas, right on Via De La Valle',
-    mainAction: 'Depart north on Los Barbos',
-    detail: 'Left on Las Colinas, right on Via De La Valle',
-    isWaypoint: false,
-    directionType: 'straight',
-  },
-  {
-    stepNumber: 24,
-    text: 'Right on La Granada â Through RSF village core on Paseo Delicias',
-    mainAction: 'Right on La Granada',
-    detail: 'Through RSF village core on Paseo Delicias',
-    isWaypoint: false,
-    directionType: 'right',
-  },
-  {
-    stepNumber: 25,
-    text: 'Right on Paseo Delicias',
-    mainAction: 'Right on Paseo Delicias',
-    detail: '',
-    isWaypoint: false,
-    directionType: 'right',
-  },
-  {
-    stepNumber: 26,
-    text: 'North on El Camino Del Norte â Scenic rolling hills through the ranch',
-    mainAction: 'North on El Camino Del Norte',
-    detail: 'Scenic rolling hills through the ranch',
-    isWaypoint: false,
-    directionType: 'straight',
-  },
-  {
-    stepNumber: 27,
-    text: 'FINISH â RSF Karting Club, 18029 Pacifica Ranch Dr â Right on Pacifica Ranch Dr',
-    mainAction: 'FINISH â RSF Karting Club',
-    detail: '18029 Pacifica Ranch Dr â Right on Pacifica Ranch Dr',
-    isWaypoint: true,
-    waypointName: 'RSF Karting Club',
-    directionType: 'right',
-  },
-];
-
-// Direction icon component
-function DirectionIcon({ type }: { type: 'left' | 'right' | 'straight' | 'continue' }) {
-  const svgSize = 20;
-  const strokeWidth = 2;
-
+// Direction arrow icons
+function DirectionIcon({ type }: { type: Step['directionType'] }) {
+  const size = 18;
+  const sw = 2;
   if (type === 'left') {
     return (
-      <svg
-        width={svgSize}
-        height={svgSize}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
         <path d="M19 12H5M12 19l-7-7 7-7" />
       </svg>
     );
   }
-
   if (type === 'right') {
     return (
-      <svg
-        width={svgSize}
-        height={svgSize}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
         <path d="M5 12h14M12 5l7 7-7 7" />
       </svg>
     );
   }
-
+  if (type === 'arrive') {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+        <circle cx="12" cy="9" r="2.5" />
+      </svg>
+    );
+  }
+  if (type === 'depart') {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="3" />
+        <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+      </svg>
+    );
+  }
+  // straight / continue
   return (
-    <svg
-      width={svgSize}
-      height={svgSize}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 5v14" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 19V5M5 12l7-7 7 7" />
     </svg>
   );
 }
@@ -340,10 +180,8 @@ function DirectionIcon({ type }: { type: 'left' | 'right' | 'straight' | 'contin
 function MapComponent() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
-  const leaflet = useRef<any>(null);
 
   useEffect(() => {
-    // Load Leaflet dynamically
     const loadLeaflet = async () => {
       const L = (window as any).L;
       if (!L) {
@@ -351,13 +189,11 @@ function MapComponent() {
         leafletScript.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
         leafletScript.async = true;
         document.head.appendChild(leafletScript);
-
         leafletScript.onload = () => {
           const leafletCss = document.createElement('link');
           leafletCss.rel = 'stylesheet';
           leafletCss.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
           document.head.appendChild(leafletCss);
-
           initMap();
         };
       } else {
@@ -367,123 +203,73 @@ function MapComponent() {
 
     const initMap = () => {
       const L = (window as any).L;
-      leaflet.current = L;
-
       if (!mapContainer.current) return;
 
-      // Create map
-      map.current = L.map(mapContainer.current).setView([33.015, -117.22], 11);
+      map.current = L.map(mapContainer.current, { zoomControl: false }).setView([33.015, -117.22], 11);
 
-      // CartoDB Voyager tiles
       L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
         maxZoom: 20,
       }).addTo(map.current);
 
-      // Fetch route from OSRM
+      L.control.zoom({ position: 'bottomright' }).addTo(map.current);
+
       fetchRoute(L);
-
-      // Add markers for major stops
       addMarkers(L);
-
-      // Add zoom controls
-      map.current.zoomControl.setPosition('bottomright');
     };
 
     const fetchRoute = async (L: any) => {
       try {
-        const coords = MAJOR_STOPS.map((stop) => `${stop.lng},${stop.lat}`).join(';');
+        const coords = ROUTE_WAYPOINTS.map((wp) => `${wp.lng},${wp.lat}`).join(';');
         const response = await fetch(
           `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`
         );
-
         if (!response.ok) throw new Error('OSRM request failed');
-
         const data = await response.json();
 
         if (data.routes && data.routes[0]) {
           const route = data.routes[0];
-          const coordinates = route.geometry.coordinates.map((coord: [number, number]) => [
-            coord[1],
-            coord[0],
-          ]);
+          const coordinates = route.geometry.coordinates.map((coord: [number, number]) => [coord[1], coord[0]]);
 
-          // Draw navy backdrop polyline
-          L.polyline(coordinates, {
-            color: '#1B2A4A',
-            weight: 6,
-            opacity: 1,
-            lineCap: 'round',
-            lineJoin: 'round',
-          }).addTo(map.current);
+          // Navy backdrop
+          L.polyline(coordinates, { color: '#1B2A4A', weight: 7, opacity: 1, lineCap: 'round', lineJoin: 'round' }).addTo(map.current);
+          // Gold route on top
+          L.polyline(coordinates, { color: '#C9A84C', weight: 4, opacity: 1, lineCap: 'round', lineJoin: 'round' }).addTo(map.current);
 
-          // Draw gold route polyline on top
-          L.polyline(coordinates, {
-            color: '#C9A84C',
-            weight: 4,
-            opacity: 1,
-            lineCap: 'round',
-            lineJoin: 'round',
-          }).addTo(map.current);
-
-          // Fit bounds to route with padding
-          const group = L.featureGroup([
-            ...coordinates.map((coord: any) => L.marker(coord)),
-          ]);
-          map.current.fitBounds(group.getBounds().pad(0.1));
+          const group = L.featureGroup([...coordinates.map((coord: any) => L.marker(coord))]);
+          map.current.fitBounds(group.getBounds().pad(0.08));
         }
       } catch (error) {
-        console.error('Error fetching route from OSRM:', error);
-        // Fallback: draw straight polyline between major stops
-        const coordinates = MAJOR_STOPS.map((stop) => [stop.lat, stop.lng]);
-        L.polyline(coordinates, {
-          color: '#1B2A4A',
-          weight: 6,
-          opacity: 1,
-        }).addTo(map.current);
-
-        L.polyline(coordinates, {
-          color: '#C9A84C',
-          weight: 4,
-          opacity: 1,
-        }).addTo(map.current);
-
-        const group = L.featureGroup(coordinates.map((coord: any) => L.marker(coord)));
-        map.current.fitBounds(group.getBounds().pad(0.1));
+        console.error('OSRM error:', error);
+        const coordinates = MAP_STOPS.map((s) => [s.lat, s.lng]);
+        L.polyline(coordinates, { color: '#1B2A4A', weight: 6, opacity: 1 }).addTo(map.current);
+        L.polyline(coordinates, { color: '#C9A84C', weight: 4, opacity: 1 }).addTo(map.current);
+        const group = L.featureGroup(coordinates.map((c: any) => L.marker(c)));
+        map.current.fitBounds(group.getBounds().pad(0.08));
       }
     };
 
     const addMarkers = (L: any) => {
-      MAJOR_STOPS.forEach((stop, index) => {
+      MAP_STOPS.forEach((stop) => {
+        const isTerminal = stop.label === 'S' || stop.label === 'F';
+        const size = isTerminal ? 44 : 36;
+        const fontSize = isTerminal ? '16px' : '14px';
+
         const html = `
           <div style="
-            width: 40px;
-            height: 40px;
+            width: ${size}px; height: ${size}px;
             background-color: #1B2A4A;
             border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #C9A84C;
-            font-weight: bold;
-            font-size: 16px;
-            border: 2px solid #C9A84C;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            display: flex; align-items: center; justify-content: center;
+            color: #C9A84C; font-weight: bold; font-size: ${fontSize};
+            border: 2.5px solid #C9A84C;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
             font-family: var(--body-font, 'Inter', sans-serif);
-            animation: pulse 2s infinite;
-          ">
-            ${stop.label}
-          </div>
+          ">${stop.label}</div>
         `;
 
         const marker = L.marker([stop.lat, stop.lng], {
-          icon: L.divIcon({
-            html: html,
-            iconSize: [40, 40],
-            iconAnchor: [20, 20],
-            className: 'custom-marker',
-          }),
+          icon: L.divIcon({ html, iconSize: [size, size], iconAnchor: [size / 2, size / 2], className: 'custom-marker' }),
         }).addTo(map.current);
 
         marker.bindPopup(`<strong>${stop.name}</strong>`);
@@ -491,81 +277,148 @@ function MapComponent() {
     };
 
     loadLeaflet();
-
-    return () => {
-      if (map.current) {
-        map.current.remove();
-        map.current = null;
-      }
-    };
+    return () => { if (map.current) { map.current.remove(); map.current = null; } };
   }, []);
 
+  return <div ref={mapContainer} style={{ width: '100%', height: '100%', backgroundColor: '#FAF8F4' }} />;
+}
+
+// Stage header component
+function StageHeader({ stage, isActive, onToggle }: { stage: Stage; isActive: boolean; onToggle: () => void }) {
   return (
-    <div
-      ref={mapContainer}
+    <button
+      onClick={onToggle}
       style={{
         width: '100%',
-        height: '55vh',
-        backgroundColor: '#FAF8F4',
-        borderRadius: '0 0 12px 12px',
+        padding: '14px 16px',
+        backgroundColor: isActive ? '#1B2A4A' : '#FAF8F4',
+        color: isActive ? '#FFFFFF' : '#1B2A4A',
+        border: 'none',
+        borderBottom: '1px solid #E0DDD4',
+        cursor: 'pointer',
+        textAlign: 'left',
+        transition: 'all 0.2s ease',
+        fontFamily: 'var(--body-font, "Inter", sans-serif)',
       }}
-    />
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: '28px', height: '28px', borderRadius: '50%',
+            backgroundColor: isActive ? '#C9A84C' : '#1B2A4A',
+            color: isActive ? '#1B2A4A' : '#C9A84C',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontWeight: 'bold', fontSize: '13px', flexShrink: 0,
+          }}>
+            {stage.number}
+          </div>
+          <div>
+            <div style={{
+              fontFamily: 'var(--heading-font, "Cormorant Garamond", serif)',
+              fontWeight: '600', fontSize: '16px', lineHeight: '1.2',
+            }}>
+              Stage {stage.number}
+            </div>
+            <div style={{ fontSize: '12px', opacity: 0.8, marginTop: '2px' }}>
+              {stage.depart} â {stage.destination}
+            </div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{
+            fontSize: '12px', fontWeight: '600',
+            color: isActive ? '#C9A84C' : '#666',
+          }}>
+            {stage.departureTime}
+          </span>
+          <span style={{ fontSize: '14px', transition: 'transform 0.2s', transform: isActive ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+            â¾
+          </span>
+        </div>
+      </div>
+    </button>
   );
 }
 
-// Progress bar component
-function ProgressBar({ activeIndex }: { activeIndex: number }) {
-  const progressLabels = ['Start', 'WP1', 'WP2', 'WP3', 'Finish'];
-
-  const handleDotClick = (index: number) => {
-    const element = document.getElementById(`direction-${DIRECTIONS[index * 6].stepNumber}`);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-  };
+// Step item component
+function StepItem({ step, isLast }: { step: Step; isLast: boolean }) {
+  const isArrival = step.directionType === 'arrive';
+  const isDeparture = step.directionType === 'depart';
+  const isSpecial = isArrival || isDeparture;
 
   return (
-    <div
-      style={{
-        padding: '16px',
-        backgroundColor: '#FAF8F4',
-        borderBottom: '1px solid #E0DDD4',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px',
-        justifyContent: 'space-between',
-      }}
-    >
-      {progressLabels.map((label, index) => (
-        <div key={index} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-          <button
-            onClick={() => handleDotClick(index)}
-            style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '50%',
-              border: 'none',
-              backgroundColor: index <= activeIndex ? '#C9A84C' : '#E0DDD4',
-              color: index <= activeIndex ? '#1B2A4A' : '#999',
-              fontSize: '11px',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              fontFamily: 'var(--body-font, "Inter", sans-serif)',
-              transition: 'all 0.3s ease',
-              boxShadow: index === activeIndex ? '0 0 8px rgba(201, 168, 76, 0.6)' : 'none',
-            }}
-          >
-            {label}
-          </button>
-          {index < progressLabels.length - 1 && (
-            <div
-              style={{
-                flex: 1,
-                height: '2px',
-                backgroundColor: index < activeIndex ? '#C9A84C' : '#E0DDD4',
-                margin: '0 8px',
-              }}
-            />
+    <div style={{
+      display: 'flex', gap: '12px', padding: '10px 16px',
+      backgroundColor: isArrival ? 'rgba(201, 168, 76, 0.08)' : 'transparent',
+      borderBottom: isLast ? 'none' : '1px solid #F0EDE6',
+    }}>
+      <div style={{
+        flexShrink: 0, width: '28px', height: '28px', borderRadius: '50%',
+        backgroundColor: isSpecial ? '#C9A84C' : '#1B2A4A',
+        color: isSpecial ? '#1B2A4A' : '#C9A84C',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: '11px', fontWeight: 'bold',
+        fontFamily: 'var(--body-font, "Inter", sans-serif)',
+      }}>
+        {step.number}
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: '13px', fontWeight: '600', color: '#2C2C2C',
+          fontFamily: 'var(--body-font, "Inter", sans-serif)', lineHeight: '1.4',
+        }}>
+          {step.action}
+        </div>
+        {step.detail && (
+          <div style={{
+            fontSize: '12px', color: '#666', marginTop: '2px',
+            fontFamily: 'var(--body-font, "Inter", sans-serif)', lineHeight: '1.4',
+          }}>
+            {step.detail}
+          </div>
+        )}
+      </div>
+
+      <div style={{
+        flexShrink: 0, color: isSpecial ? '#C9A84C' : '#1B2A4A',
+        display: 'flex', alignItems: 'center', paddingTop: '2px',
+      }}>
+        <DirectionIcon type={step.directionType} />
+      </div>
+    </div>
+  );
+}
+
+// Directions panel
+function DirectionsPanel() {
+  const [activeStage, setActiveStage] = useState(0);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#FFFFFF' }}>
+      {STAGES.map((stage, idx) => (
+        <div key={stage.number}>
+          <StageHeader
+            stage={stage}
+            isActive={activeStage === idx}
+            onToggle={() => setActiveStage(activeStage === idx ? -1 : idx)}
+          />
+          {activeStage === idx && (
+            <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+              {/* Stage info bar */}
+              <div style={{
+                padding: '10px 16px', backgroundColor: '#FAF8F4',
+                borderBottom: '1px solid #E0DDD4', fontSize: '11px', color: '#666',
+                fontFamily: 'var(--body-font, "Inter", sans-serif)',
+              }}>
+                <div><strong>From:</strong> {stage.departAddress}</div>
+                <div><strong>To:</strong> {stage.destAddress}</div>
+              </div>
+              {/* Steps */}
+              {stage.steps.map((step, stepIdx) => (
+                <StepItem key={step.number} step={step} isLast={stepIdx === stage.steps.length - 1} />
+              ))}
+            </div>
           )}
         </div>
       ))}
@@ -573,146 +426,7 @@ function ProgressBar({ activeIndex }: { activeIndex: number }) {
   );
 }
 
-// Directions list component
-function DirectionsList() {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const scrollContainer = useRef<HTMLDivElement>(null);
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <ProgressBar activeIndex={activeIndex} />
-
-      <div
-        ref={scrollContainer}
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '12px',
-          backgroundColor: '#FFFFFF',
-        }}
-        onScroll={() => {
-          // Update active index based on scroll position
-          if (scrollContainer.current) {
-            const scrollTop = scrollContainer.current.scrollTop;
-            const estimatedIndex = Math.floor(scrollTop / 80);
-            setActiveIndex(Math.min(estimatedIndex, 4));
-          }
-        }}
-      >
-        {DIRECTIONS.map((direction, idx) => (
-          <div
-            key={direction.stepNumber}
-            id={`direction-${direction.stepNumber}`}
-            style={{
-              marginBottom: '12px',
-              borderRadius: '8px',
-              overflow: 'hidden',
-              backgroundColor: direction.isWaypoint ? '#FAF8F4' : 'transparent',
-              border: direction.isWaypoint ? '2px solid #C9A84C' : 'none',
-              padding: direction.isWaypoint ? '12px' : '0',
-            }}
-          >
-            {direction.isWaypoint ? (
-              // Waypoint card
-              <div>
-                <div
-                  style={{
-                    fontSize: '14px',
-                    fontWeight: 'bold',
-                    color: '#C9A84C',
-                    fontFamily: 'var(--heading-font, "Cormorant Garamond", serif)',
-                    marginBottom: '8px',
-                  }}
-                >
-                  {direction.waypointName}
-                </div>
-                <div
-                  style={{
-                    fontSize: '12px',
-                    color: '#2C2C2C',
-                    fontFamily: 'var(--body-font, "Inter", sans-serif)',
-                    lineHeight: '1.5',
-                  }}
-                >
-                  <strong>{direction.mainAction}</strong>
-                  {direction.detail && (
-                    <>
-                      <br />
-                      {direction.detail}
-                    </>
-                  )}
-                </div>
-              </div>
-            ) : (
-              // Regular direction card
-              <div
-                style={{
-                  display: 'flex',
-                  gap: '12px',
-                  padding: '8px 0',
-                }}
-              >
-                <div
-                  style={{
-                    flexShrink: 0,
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '50%',
-                    backgroundColor: '#1B2A4A',
-                    color: '#C9A84C',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '11px',
-                    fontWeight: 'bold',
-                    fontFamily: 'var(--body-font, "Inter", sans-serif)',
-                  }}
-                >
-                  {direction.stepNumber}
-                </div>
-
-                <div style={{ flex: 1 }}>
-                  <div
-                    style={{
-                      fontSize: '13px',
-                      color: '#2C2C2C',
-                      fontFamily: 'var(--body-font, "Inter", sans-serif)',
-                      lineHeight: '1.6',
-                    }}
-                  >
-                    <strong>{direction.mainAction}</strong>
-                    {direction.detail && (
-                      <>
-                        <br />
-                        <span style={{ fontWeight: 'normal' }}>{direction.detail}</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    flexShrink: 0,
-                    color: '#1B2A4A',
-                    display: 'flex',
-                    alignItems: 'center',
-                    paddingTop: '2px',
-                  }}
-                >
-                  <DirectionIcon type={direction.directionType} />
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
-
-        <div style={{ height: '24px' }} />
-      </div>
-    </div>
-  );
-}
-
-// Main page component
+// Main page
 export default function NavigatePage() {
   const [mounted, setMounted] = useState(false);
 
@@ -722,104 +436,68 @@ export default function NavigatePage() {
     applyBrandConfig(brand);
   }, []);
 
-  if (!mounted) {
-    return null;
-  }
+  if (!mounted) return null;
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100vh',
-        backgroundColor: '#FAF8F4',
-        fontFamily: 'var(--body-font, "Inter", sans-serif)',
-      }}
-    >
+    <div style={{
+      display: 'flex', flexDirection: 'column', height: '100vh',
+      backgroundColor: '#FAF8F4',
+      fontFamily: 'var(--body-font, "Inter", sans-serif)',
+    }}>
       {/* Top Bar */}
-      <div
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 100,
-          backgroundColor: '#1B2A4A',
-          color: '#FFFFFF',
-          padding: '16px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        }}
-      >
+      <div style={{
+        position: 'sticky', top: 0, zIndex: 100,
+        backgroundColor: '#1B2A4A', color: '#FFFFFF',
+        padding: '14px 16px',
+        display: 'flex', alignItems: 'center', gap: '12px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+      }}>
         <Link
           href="/home"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '32px',
-            height: '32px',
-            borderRadius: '6px',
-            backgroundColor: 'rgba(255,255,255,0.1)',
-            color: '#FFFFFF',
-            textDecoration: 'none',
-            cursor: 'pointer',
-            transition: 'background-color 0.2s',
-            fontSize: '18px',
-            lineHeight: 1,
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as any).style.backgroundColor = 'rgba(255,255,255,0.2)';
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as any).style.backgroundColor = 'rgba(255,255,255,0.1)';
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: '32px', height: '32px', borderRadius: '6px',
+            backgroundColor: 'rgba(255,255,255,0.1)', color: '#FFFFFF',
+            textDecoration: 'none', fontSize: '18px', lineHeight: 1,
           }}
         >
           â
         </Link>
-
-        <h1
-          style={{
-            fontSize: '24px',
-            fontWeight: '600',
-            margin: 0,
-            flex: 1,
+        <div style={{ flex: 1 }}>
+          <h1 style={{
+            fontSize: '22px', fontWeight: '600', margin: 0,
             fontFamily: 'var(--heading-font, "Cormorant Garamond", serif)',
             letterSpacing: '0.5px',
-          }}
-        >
-          Tour d'Elegance
-        </h1>
+          }}>
+            Tour d&apos;Elegance
+          </h1>
+          <div style={{ fontSize: '11px', opacity: 0.7, marginTop: '1px' }}>
+            Saturday, April 25, 2026 Â· 4 Stages
+          </div>
+        </div>
       </div>
 
       {/* Map */}
-      <div style={{ height: '55vh', overflow: 'hidden', borderRadius: '0 0 12px 12px' }}>
+      <div style={{ height: '45vh', minHeight: '250px', overflow: 'hidden' }}>
         <MapComponent />
       </div>
 
-      {/* Directions List */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <DirectionsList />
+      {/* Directions */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
+        <DirectionsPanel />
       </div>
 
-      {/* Footer Note */}
-      <div
-        style={{
-          padding: '12px 16px',
-          backgroundColor: '#FAF8F4',
-          borderTop: '1px solid #E0DDD4',
-          fontSize: '12px',
-          fontStyle: 'italic',
-          color: '#666666',
-          fontFamily: 'var(--body-font, "Inter", sans-serif)',
-          textAlign: 'center',
-        }}
-      >
-        Please maintain safe following distances and obey all traffic laws. Stay with the group
-        and enjoy the drive.
+      {/* Safety footer */}
+      <div style={{
+        padding: '8px 16px', backgroundColor: '#FAF8F4',
+        borderTop: '1px solid #E0DDD4',
+        fontSize: '11px', fontStyle: 'italic', color: '#888',
+        fontFamily: 'var(--body-font, "Inter", sans-serif)',
+        textAlign: 'center',
+      }}>
+        Please maintain safe following distances and obey all traffic laws.
       </div>
 
-      {/* Bottom Nav */}
       <BottomNav active="navigate" />
     </div>
   );
