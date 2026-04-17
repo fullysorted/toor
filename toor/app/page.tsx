@@ -168,11 +168,26 @@ export default function SplashPage() {
           April 24{"\u2013"}26, 2026
         </p>
 
+        {/* Presented by */}
+        <div style={{ marginTop: 24, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+          <div style={{
+            fontSize: 9, fontWeight: 500, letterSpacing: "0.12em",
+            textTransform: "uppercase", color: "var(--bg)", opacity: 0.3,
+          }}>
+            Presented by
+          </div>
+          <img
+            src="/sdam-logo.svg"
+            alt="San Diego Automotive Museum"
+            style={{ height: 24, filter: "brightness(0) invert(1)", opacity: 0.4 }}
+          />
+        </div>
+
         {/* Divider */}
         <div style={{
           width: 40, height: 1,
           backgroundColor: "var(--accent)", opacity: 0.25,
-          margin: "36px auto",
+          margin: "28px auto",
         }} />
 
         {/* Invite code section */}
