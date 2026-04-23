@@ -67,7 +67,7 @@ const STAGES: Stage[] = [
     steps: [
       { number: 1, action: 'Depart La Valencia Hotel', detail: 'Head south on Prospect St, then left on Prospect Place', directionType: 'depart' },
       { number: 2, action: 'Left on Torrey Pines Rd', detail: 'Head north', directionType: 'left' },
-      { number: 3, action: 'Continue north', detail: 'Torrey Pines Rd becomes N. Torrey Pines Rd, then S. Camino del Mar / Hwy 101 â coastal route, no freeway', directionType: 'straight' },
+      { number: 3, action: 'Continue north', detail: 'Torrey Pines Rd becomes N. Torrey Pines Rd, then S. Camino del Mar / Hwy 101  - coastal route, no freeway', directionType: 'straight' },
       { number: 4, action: 'Left on D St', detail: 'Into Encinitas', directionType: 'left' },
       { number: 5, action: 'Right on 4th St', detail: 'Arrive at Moonlight Beach, 351 C St, Encinitas', directionType: 'arrive' },
     ],
@@ -86,7 +86,7 @@ const STAGES: Stage[] = [
       { number: 3, action: 'Left on 3rd St', detail: '', directionType: 'left' },
       { number: 4, action: 'Right on B St', detail: 'Becomes Encinitas Blvd', directionType: 'right' },
       { number: 5, action: 'Continue on Encinitas Blvd', detail: 'Becomes South Rancho Santa Fe Farms Rd', directionType: 'straight' },
-      { number: 6, action: 'Right', detail: 'Arrive at Harvest Ranch Market â 162 S Rancho Santa Fe Rd, Encinitas', directionType: 'arrive' },
+      { number: 6, action: 'Right', detail: 'Arrive at Harvest Ranch Market  - 162 S Rancho Santa Fe Rd, Encinitas', directionType: 'arrive' },
     ],
   },
   {
@@ -98,7 +98,7 @@ const STAGES: Stage[] = [
     destAddress: '16503 Los Barbos, Rancho Santa Fe',
     departureTime: '10:30 AM',
     steps: [
-      { number: 1, action: 'Right', detail: 'Depart Harvest Ranch Market â 162 S Rancho Santa Fe Rd, Encinitas', directionType: 'depart' },
+      { number: 1, action: 'Right', detail: 'Depart Harvest Ranch Market  - 162 S Rancho Santa Fe Rd, Encinitas', directionType: 'depart' },
       { number: 2, action: 'Right on La Bajada', detail: 'Into Rancho Santa Fe', directionType: 'right' },
       { number: 3, action: 'Continue on Los Morros', detail: '', directionType: 'straight' },
       { number: 4, action: 'Continue on La Granada', detail: '', directionType: 'straight' },
@@ -129,7 +129,7 @@ const STAGES: Stage[] = [
       { number: 5, action: 'Right on Paseo Delicias', detail: '', directionType: 'right' },
       { number: 6, action: 'North on El Camino Del Norte', detail: 'Scenic rolling hills through the ranch', directionType: 'straight' },
       { number: 7, action: 'Right on Pacifica Ranch Dr', detail: '', directionType: 'right' },
-      { number: 8, action: 'FINISH â RSF Karting Club', detail: '18029 Pacifica Ranch Dr', directionType: 'arrive' },
+      { number: 8, action: 'FINISH  - RSF Karting Club', detail: '18029 Pacifica Ranch Dr', directionType: 'arrive' },
     ],
   },
 ];
@@ -320,7 +320,7 @@ function StageHeader({ stage, isActive, onToggle }: { stage: Stage; isActive: bo
               Stage {stage.number}
             </div>
             <div style={{ fontSize: '12px', opacity: 0.8, marginTop: '2px' }}>
-              {stage.depart} â {stage.destination}
+              {stage.depart} {"\u2192"} {stage.destination}
             </div>
           </div>
         </div>
@@ -460,9 +460,7 @@ export default function NavigatePage() {
             backgroundColor: 'rgba(255,255,255,0.1)', color: '#FFFFFF',
             textDecoration: 'none', fontSize: '18px', lineHeight: 1,
           }}
-        >
-          â
-        </Link>
+        >{"\u2190"}</Link>
         <div style={{ flex: 1 }}>
           <h1 style={{
             fontSize: '22px', fontWeight: '600', margin: 0,
@@ -472,7 +470,7 @@ export default function NavigatePage() {
             Tour d&apos;Elegance
           </h1>
           <div style={{ fontSize: '11px', opacity: 0.7, marginTop: '1px' }}>
-            Saturday, April 25, 2026 Â· 4 Stages
+            Saturday, April 25, 2026 {"\u00B7"} 4 Stages
           </div>
         </div>
       </div>
