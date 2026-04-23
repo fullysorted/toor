@@ -35,7 +35,7 @@ interface Stage {
 const MAP_STOPS: MapStop[] = [
   { name: 'La Valencia Hotel', lat: 32.8495, lng: -117.2740, label: 'S' },
   { name: 'Moonlight Beach', lat: 33.0441, lng: -117.2957, label: '1' },
-  { name: 'Harvest Ranch Market', lat: 33.0370, lng: -117.2580, label: '2' },
+  { name: 'Harvest Ranch Market', lat: 33.0395, lng: -117.2615, label: '2' },
   { name: 'Private Estate', lat: 33.0010, lng: -117.1780, label: '3' },
   { name: 'RSF Karting Club', lat: 33.0550, lng: -117.1350, label: 'F' },
 ];
@@ -43,10 +43,13 @@ const MAP_STOPS: MapStop[] = [
 // Extra waypoints for OSRM to follow the actual coastal/rural roads
 const ROUTE_WAYPOINTS = [
   { lat: 32.8495, lng: -117.2740 },  // Start: La Valencia
-  { lat: 32.9000, lng: -117.2560 },  // Torrey Pines (force coastal)
+  { lat: 32.8780, lng: -117.2690 },  // Torrey Pines Rd (coastal, no inland detour)
+  { lat: 32.9220, lng: -117.2640 },  // S Camino Del Mar / Hwy 101
   { lat: 32.9590, lng: -117.2650 },  // Del Mar coast (force Hwy 101)
+  { lat: 32.9850, lng: -117.2710 },  // Solana Beach Hwy 101
+  { lat: 33.0150, lng: -117.2850 },  // Cardiff-by-the-Sea Hwy 101
   { lat: 33.0441, lng: -117.2957 },  // Moonlight Beach
-  { lat: 33.0370, lng: -117.2580 },  // Harvest Ranch Market
+  { lat: 33.0395, lng: -117.2615 },  // Harvest Ranch Market (Encinitas Blvd)
   { lat: 33.0200, lng: -117.2070 },  // RSF village (Paseo Delicias)
   { lat: 33.0010, lng: -117.1780 },  // Private Estate
   { lat: 33.0200, lng: -117.2070 },  // Back through RSF village
