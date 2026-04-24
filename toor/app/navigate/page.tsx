@@ -354,7 +354,7 @@ function StageHeader({ stage, isActive, onToggle }: { stage: Stage; isActive: bo
             {stage.departureTime}
           </span>
           <span style={{ fontSize: '14px', transition: 'transform 0.2s', transform: isActive ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-            â¾
+            {"\u25BE"}
           </span>
         </div>
       </div>
