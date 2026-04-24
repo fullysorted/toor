@@ -20,7 +20,10 @@ const EVENT_DATE_MAP: Record<string, string> = {
 
 function getEventDay(): string {
   const now = new Date();
-  const dateStr = now.toISOString().split("T")[0];
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  const dateStr = `${y}-${m}-${d}`;
   for (const [day, date] of Object.entries(EVENT_DATE_MAP)) {
     if (dateStr === date) return day;
   }
