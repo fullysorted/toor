@@ -24,7 +24,7 @@ function getEventDay(): string {
   for (const [day, date] of Object.entries(EVENT_DATE_MAP)) {
     if (dateStr === date) return day;
   }
-  return "Friday";
+  return "";
 }
 
 // âââ Icons âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
