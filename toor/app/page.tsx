@@ -1,118 +1,30 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import {
-  seedIfNeeded,
-  getBrandConfig,
-  applyBrandConfig,
-  getCurrentUser,
-  setCurrentUser,
-  setUserEntry,
-  lookupInviteCode,
-} from "@/lib/store";
+import { seedIfNeeded, getBrandConfig, applyBrandConfig } from "@/lib/store";
 
 export default function SplashPage() {
   const router = useRouter();
-  const [brandConfig, setBrandConfig] = useState<any>(null);
-  const [inviteCode, setInviteCode] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
     seedIfNeeded();
     const config = getBrandConfig();
     applyBrandConfig(config);
-    setBrandConfig(config);
 
-    // If already logged in, go straight to home
-    const existingUser = getCurrentUser();
-    if (existingUser && existingUser.name) {
+    // Auto-redirect to home after a brief splash
+    const timer = setTimeout(() => {
       router.push("/home");
-      return;
-    }
+    }, 1800);
 
-    // Check backup profile
-    const backupRaw = localStorage.getItem("toor_platform_user_profile_backup");
-    if (backupRaw) {
-      const backup = JSON.parse(backupRaw);
-      if (backup && backup.name) {
-        setCurrentUser(backup);
-        router.push("/home");
-        return;
-      }
-    }
-
-    setChecking(false);
+    return () => clearTimeout(timer);
   }, [router]);
-
-  const handleInviteCode = () => {
-    if (!inviteCode.trim()) {
-      setError("Please enter your entry number or last name");
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-
-    setTimeout(() => {
-      const entrant = lookupInviteCode(inviteCode);
-
-      if (!entrant) {
-        setError("No entrant found. Try your entry number (e.g. 101) or last name.");
-        setLoading(false);
-        return;
-      }
-
-      setCurrentUser({
-        user_id: entrant.user_id,
-        name: entrant.name,
-        hometown: entrant.hometown,
-        bio: entrant.bio,
-        years_collecting: entrant.years_collecting,
-        photo_url: "",
-        auth_method: "invite_code",
-        created_at: new Date().toISOString(),
-      });
-
-      setUserEntry({
-        car: entrant.car,
-        entry_class: entrant.entry_class,
-        entry_number: entrant.entry_number,
-        status: entrant.status,
-      });
-
-      setLoading(false);
-      router.push("/home");
-    }, 600);
-  };
-
-  if (checking || !brandConfig) {
-    return (
-      <div style={{
-        minHeight: "100vh",
-        backgroundColor: "var(--primary, #1B2A4A)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}>
-        <div style={{
-          width: 24, height: 24, borderRadius: "50%",
-          border: "2px solid rgba(201, 168, 76, 0.3)",
-          borderTopColor: "var(--accent, #C9A84C)",
-          animation: "spin 0.8s linear infinite",
-        }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
-  }
 
   return (
     <div style={{
       minHeight: "100vh",
-      backgroundColor: "var(--primary)",
-      fontFamily: "var(--body-font)",
+      backgroundColor: "var(--primary, #1B2A4A)",
+      fontFamily: "var(--body-font, Inter, sans-serif)",
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
@@ -124,14 +36,14 @@ export default function SplashPage() {
       {/* Subtle diagonal texture */}
       <div style={{
         position: "absolute", inset: 0, opacity: 0.03, pointerEvents: "none",
-        backgroundImage: "repeating-linear-gradient(-35deg, transparent, transparent 40px, var(--accent) 40px, var(--accent) 41px)",
+        backgroundImage: "repeating-linear-gradient(-35deg, transparent, transparent 40px, var(--accent, #C9A84C) 40px, var(--accent, #C9A84C) 41px)",
       }} />
 
       <div style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 360, textAlign: "center" }}>
         {/* Toor wordmark */}
         <div style={{
           fontSize: 10, fontWeight: 600, letterSpacing: "0.3em",
-          textTransform: "uppercase", color: "var(--accent)", opacity: 0.5,
+          textTransform: "uppercase", color: "var(--accent, #C9A84C)", opacity: 0.5,
           marginBottom: 32,
         }}>
           Toor
@@ -139,10 +51,10 @@ export default function SplashPage() {
 
         {/* Event name */}
         <h1 style={{
-          fontFamily: "var(--heading-font)",
+          fontFamily: 'var(--heading-font, "Cormorant Garamond", serif)',
           fontSize: "clamp(32px, 8vw, 44px)",
           fontWeight: 400,
-          color: "var(--bg)",
+          color: "var(--bg, #FAF8F4)",
           lineHeight: 1.05,
           margin: 0,
         }}>
@@ -153,16 +65,16 @@ export default function SplashPage() {
 
         <div style={{
           fontSize: 12, fontWeight: 500, letterSpacing: "0.15em",
-          textTransform: "uppercase", color: "var(--accent)",
+          textTransform: "uppercase", color: "var(--accent, #C9A84C)",
           marginTop: 16, opacity: 0.7,
         }}>
-          {brandConfig.anniversary_note}
+          20th Anniversary
         </div>
 
         <p style={{
-          fontFamily: "var(--heading-font)",
+          fontFamily: 'var(--heading-font, "Cormorant Garamond", serif)',
           fontSize: 15, fontStyle: "italic",
-          color: "var(--bg)", opacity: 0.45,
+          color: "var(--bg, #FAF8F4)", opacity: 0.45,
           marginTop: 8,
         }}>
           April 24{"\u2013"}26, 2026
@@ -172,7 +84,7 @@ export default function SplashPage() {
         <div style={{ marginTop: 24, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
           <div style={{
             fontSize: 9, fontWeight: 500, letterSpacing: "0.12em",
-            textTransform: "uppercase", color: "var(--bg)", opacity: 0.3,
+            textTransform: "uppercase", color: "var(--bg, #FAF8F4)", opacity: 0.3,
           }}>
             Presented by
           </div>
@@ -183,78 +95,19 @@ export default function SplashPage() {
           />
         </div>
 
-        {/* Divider */}
-        <div style={{
-          width: 40, height: 1,
-          backgroundColor: "var(--accent)", opacity: 0.25,
-          margin: "28px auto",
-        }} />
-
-        {/* Invite code section */}
-        <div style={{
-          fontSize: 10, fontWeight: 600, letterSpacing: "0.15em",
-          textTransform: "uppercase", color: "var(--bg)", opacity: 0.35,
-          marginBottom: 14,
-        }}>
-          Entrant Access
+        {/* Loading indicator */}
+        <div style={{ marginTop: 48, display: "flex", justifyContent: "center" }}>
+          <div style={{
+            width: 24, height: 24, borderRadius: "50%",
+            border: "2px solid rgba(201, 168, 76, 0.2)",
+            borderTopColor: "var(--accent, #C9A84C)",
+            animation: "spin 0.8s linear infinite",
+          }} />
         </div>
-
-        <input
-          type="text"
-          placeholder="Entry # or last name"
-          value={inviteCode}
-          onChange={(e) => { setInviteCode(e.target.value); setError(""); }}
-          onKeyDown={(e) => { if (e.key === "Enter") handleInviteCode(); }}
-          style={{
-            width: "100%",
-            padding: "16px 20px",
-            fontSize: 16,
-            fontFamily: "var(--body-font)",
-            backgroundColor: "rgba(250, 248, 244, 0.08)",
-            border: error ? "1px solid rgba(180, 74, 74, 0.6)" : "1px solid rgba(250, 248, 244, 0.12)",
-            borderRadius: 10,
-            color: "var(--bg)",
-            outline: "none",
-            textAlign: "center",
-            letterSpacing: "0.05em",
-            transition: "border-color 0.2s",
-          }}
-        />
-
-        {error && (
-          <p style={{
-            fontSize: 12, color: "#E07A5F", marginTop: 10, lineHeight: 1.4,
-          }}>
-            {error}
-          </p>
-        )}
-
-        <button
-          onClick={handleInviteCode}
-          disabled={loading}
-          style={{
-            width: "100%",
-            padding: "16px 24px",
-            marginTop: 12,
-            backgroundColor: "var(--accent)",
-            color: "var(--primary)",
-            border: "none",
-            borderRadius: 10,
-            fontSize: 14,
-            fontWeight: 600,
-            fontFamily: "var(--body-font)",
-            letterSpacing: "0.04em",
-            cursor: loading ? "wait" : "pointer",
-            opacity: loading ? 0.7 : 1,
-            transition: "opacity 0.2s",
-          }}
-        >
-          {loading ? "Looking you up\u2026" : "Enter as Entrant"}
-        </button>
 
         {/* Footer */}
         <p style={{
-          fontSize: 10, color: "var(--bg)", opacity: 0.15,
+          fontSize: 10, color: "var(--bg, #FAF8F4)", opacity: 0.15,
           marginTop: 48, letterSpacing: "0.06em",
         }}>
           Powered by Toor {"\u00b7"} A Fully Sorted Company
@@ -264,8 +117,7 @@ export default function SplashPage() {
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         html { -webkit-font-smoothing: antialiased; }
-        input::placeholder { color: rgba(250, 248, 244, 0.25); }
-        input:focus { border-color: var(--accent) !important; }
+        @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
     </div>
   );
