@@ -123,10 +123,10 @@ export default function HomePage() {
       }}>
         <div>
           <div style={{ fontFamily: "var(--heading-font)", fontSize: 15, color: "var(--bg)", fontWeight: 400 }}>
-            {brandConfig.event_name}
+            La Jolla Concours d&apos;Elegance | Tour d&apos;Elegance
           </div>
           <div style={{ fontSize: 9, fontWeight: 500, letterSpacing: "0.05em", color: "var(--accent)", opacity: 0.7, marginTop: 2 }}>
-            Presented by the San Diego Automotive Museum
+            Tour d&apos;Elegance presented by San Diego Automotive Museum
           </div>
         </div>
       </div>
@@ -143,13 +143,21 @@ export default function HomePage() {
           color: "var(--bg)",
           margin: 0, lineHeight: 1.1,
         }}>
-          Tour d&apos;Elegance
+          La Jolla Concours d&apos;Elegance
         </h1>
         <p style={{
           fontFamily: "var(--heading-font)",
           fontSize: 14, fontStyle: "italic",
           color: "var(--bg)", opacity: 0.45,
           marginTop: 6,
+        }}>
+          Tour d&apos;Elegance presented by San Diego Automotive Museum
+        </p>
+        <p style={{
+          fontFamily: "var(--heading-font)",
+          fontSize: 13, fontStyle: "italic",
+          color: "var(--bg)", opacity: 0.35,
+          marginTop: 4,
         }}>
           April 24{"\u2013"}26, 2026 {"\u00b7"} La Jolla, California
         </p>
