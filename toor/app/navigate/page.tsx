@@ -35,26 +35,45 @@ interface Stage {
 const MAP_STOPS: MapStop[] = [
   { name: 'La Valencia Hotel', lat: 32.8495, lng: -117.2740, label: 'S' },
   { name: 'Moonlight Beach', lat: 33.0441, lng: -117.2957, label: '1' },
-  { name: 'Harvest Ranch Market', lat: 33.0395, lng: -117.2615, label: '2' },
-  { name: 'Private Estate', lat: 33.0010, lng: -117.1780, label: '3' },
-  { name: 'RSF Karting Club', lat: 33.0550, lng: -117.1350, label: 'F' },
+  { name: 'Harvest Ranch Market', lat: 33.0360, lng: -117.2386, label: '2' },
+  { name: 'Private Estate', lat: 33.0147, lng: -117.1890, label: '3' },
+  { name: 'RSF Karting Club', lat: 33.0451, lng: -117.1757, label: 'F' },
 ];
 
-// Extra waypoints for OSRM to follow the actual coastal/rural roads
+// Detailed waypoints for OSRM to follow the exact tour route through coastal roads and RSF
 const ROUTE_WAYPOINTS = [
-  { lat: 32.8495, lng: -117.2740 },  // Start: La Valencia
-  { lat: 32.8780, lng: -117.2690 },  // Torrey Pines Rd (coastal, no inland detour)
+  // Stage 1: La Jolla to Moonlight Beach (coastal Hwy 101)
+  { lat: 32.8495, lng: -117.2740 },  // Start: La Valencia Hotel
+  { lat: 32.8780, lng: -117.2690 },  // Torrey Pines Rd north
   { lat: 32.9220, lng: -117.2640 },  // S Camino Del Mar / Hwy 101
-  { lat: 32.9590, lng: -117.2650 },  // Del Mar coast (force Hwy 101)
+  { lat: 32.9590, lng: -117.2650 },  // Del Mar coast (Hwy 101)
   { lat: 32.9850, lng: -117.2710 },  // Solana Beach Hwy 101
   { lat: 33.0150, lng: -117.2850 },  // Cardiff-by-the-Sea Hwy 101
   { lat: 33.0441, lng: -117.2957 },  // Moonlight Beach
-  { lat: 33.0395, lng: -117.2615 },  // Harvest Ranch Market (Encinitas Blvd)
-  { lat: 33.0200, lng: -117.2070 },  // RSF village (Paseo Delicias)
-  { lat: 33.0010, lng: -117.1780 },  // Private Estate
-  { lat: 33.0200, lng: -117.2070 },  // Back through RSF village
-  { lat: 33.0450, lng: -117.1750 },  // El Camino Del Norte
-  { lat: 33.0550, lng: -117.1350 },  // Finish: RSF Karting Club
+
+  // Stage 2: Moonlight Beach to Harvest Ranch Market (east on Encinitas Blvd)
+  { lat: 33.0420, lng: -117.2800 },  // Encinitas Blvd heading east
+  { lat: 33.0400, lng: -117.2600 },  // Encinitas Blvd midpoint
+  { lat: 33.0360, lng: -117.2386 },  // Harvest Ranch Market
+
+  // Stage 3: Harvest Ranch to Private Estate (winding through RSF)
+  { lat: 33.0283, lng: -117.2304 },  // La Bajada
+  { lat: 33.0240, lng: -117.2100 },  // Los Morros / La Granada north
+  { lat: 33.0202, lng: -117.2029 },  // La Granada & Paseo Delicias (village center)
+  { lat: 33.0201, lng: -117.2046 },  // Ave De Acacias / El Tordo intersection
+  { lat: 33.0120, lng: -117.2120 },  // Linea Del Cielo area
+  { lat: 33.0150, lng: -117.2050 },  // Paseo Delicias south loop
+  { lat: 33.0180, lng: -117.2000 },  // La Granada south
+  { lat: 33.0228, lng: -117.1991 },  // Via De La Valle & Las Colinas
+  { lat: 33.0147, lng: -117.1890 },  // Private Estate (16503 Los Barbos)
+
+  // Stage 4: Private Estate to RSF Karting Club (north through El Camino Del Norte)
+  { lat: 33.0190, lng: -117.1940 },  // Los Barbos north
+  { lat: 33.0202, lng: -117.2029 },  // Back through La Granada & Paseo Delicias
+  { lat: 33.0270, lng: -117.2080 },  // El Camino Del Norte start
+  { lat: 33.0370, lng: -117.1950 },  // El Camino Del Norte mid
+  { lat: 33.0430, lng: -117.1830 },  // El Camino Del Norte north
+  { lat: 33.0451, lng: -117.1757 },  // Finish: RSF Karting Club (18029 Pacifica Ranch Dr)
 ];
 
 // 4 Tour Stages from the official program
