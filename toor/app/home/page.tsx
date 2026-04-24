@@ -5,11 +5,8 @@ import { useRouter } from "next/navigation";
 import {
   getBrandConfig,
   applyBrandConfig,
-  getCurrentUser,
-  getUserEntry,
   getEvents,
   getWaypoints,
-  signOut,
 } from "@/lib/store";
 import BottomNav from "@/components/BottomNav";
 
@@ -27,7 +24,6 @@ function getEventDay(): string {
   for (const [day, date] of Object.entries(EVENT_DATE_MAP)) {
     if (dateStr === date) return day;
   }
-  // Default to Friday if not during event
   return "Friday";
 }
 
@@ -77,48 +73,39 @@ function BookIcon() {
   );
 }
 
+function CalendarIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+  );
+}
+
 // âââ Home Page ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 export default function HomePage() {
   const router = useRouter();
   const [brandConfig, setBrandConfig] = useState<any>(null);
-  const [user, setUser] = useState<any>(null);
-  const [entry, setEntry] = useState<any>(null);
   const [events, setEvents] = useState<any[]>([]);
   const [waypoints, setWaypointsList] = useState<any[]>([]);
-  const [showMenu, setShowMenu] = useState(false);
 
   useEffect(() => {
     const config = getBrandConfig();
     applyBrandConfig(config);
     setBrandConfig(config);
-
-    const currentUser = getCurrentUser();
-    if (!currentUser) {
-      router.push("/");
-      return;
-    }
-    setUser(currentUser);
-    setEntry(getUserEntry());
     setEvents(getEvents());
     setWaypointsList(getWaypoints());
-  }, [router]);
+  }, []);
 
-  if (!brandConfig || !user) return null;
-
-  const firstName = user.name ? user.name.split(" ")[0] : "Guest";
-  const carName = entry?.car
-    ? `${entry.car.year || ""} ${entry.car.make || ""} ${entry.car.model || ""}`.trim()
-    : null;
+  if (!brandConfig) return null;
 
   const today = getEventDay();
   const todayEvents = events.filter((e: any) => e.day === today);
   const allDays = ["Friday", "Saturday", "Sunday"];
-
-  // Find next upcoming event (simplified)
   const nextEvent = todayEvents[0] || events[0];
-
-  // Next tour stop
   const nextStop = waypoints[0];
 
   return (
@@ -139,77 +126,9 @@ export default function HomePage() {
             Presented by the San Diego Automotive Museum
           </div>
         </div>
-
-        {/* User avatar + menu */}
-        <div style={{ position: "relative" }}>
-          <button
-            onClick={() => setShowMenu(!showMenu)}
-            style={{
-              width: 36, height: 36, borderRadius: "50%", backgroundColor: "var(--accent)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 14, fontWeight: 600, color: "var(--primary)", fontFamily: "var(--body-font)",
-              border: "none", cursor: "pointer", overflow: "hidden",
-            }}
-          >
-            {user.photo_url ? (
-              <img src={user.photo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            ) : (
-              firstName.charAt(0).toUpperCase()
-            )}
-          </button>
-          {showMenu && (
-            <>
-              <div onClick={() => setShowMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 19 }} />
-              <div style={{
-                position: "absolute", top: 44, right: 0, backgroundColor: "#FFFFFF",
-                borderRadius: 12, boxShadow: "0 8px 24px rgba(27, 42, 74, 0.15)",
-                border: "1px solid rgba(27, 42, 74, 0.08)", overflow: "hidden",
-                zIndex: 20, minWidth: 200,
-              }}>
-                <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(27, 42, 74, 0.06)" }}>
-                  <div style={{ fontFamily: "var(--heading-font)", fontSize: 16, fontWeight: 500, color: "var(--primary)" }}>
-                    {user.name || "Guest"}
-                  </div>
-                  {carName && (
-                    <div style={{ fontSize: 12, color: "var(--accent)", fontStyle: "italic", marginTop: 2 }}>
-                      {carName}
-                    </div>
-                  )}
-                </div>
-                {[
-                  { label: "Edit Profile", href: "/profile" },
-                  { label: "Admin Panel", href: "/admin" },
-                ].map((item) => (
-                  <button
-                    key={item.label}
-                    onClick={() => { setShowMenu(false); router.push(item.href); }}
-                    style={{
-                      display: "block", width: "100%",
-                      padding: "12px 16px", backgroundColor: "transparent", border: "none",
-                      borderBottom: "1px solid rgba(27, 42, 74, 0.04)",
-                      fontFamily: "var(--body-font)", fontSize: 14, color: "var(--text)", cursor: "pointer", textAlign: "left",
-                    }}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-                <button
-                  onClick={() => { setShowMenu(false); signOut(); router.push("/"); }}
-                  style={{
-                    display: "block", width: "100%",
-                    padding: "12px 16px", backgroundColor: "transparent", border: "none",
-                    fontFamily: "var(--body-font)", fontSize: 14, color: "#B44A4A", cursor: "pointer", textAlign: "left",
-                  }}
-                >
-                  Sign Out
-                </button>
-              </div>
-            </>
-          )}
-        </div>
       </div>
 
-      {/* ââ Welcome + Entry Card ââ */}
+      {/* ââ Hero Header ââ */}
       <div style={{
         backgroundColor: "var(--primary)",
         padding: "4px 24px 28px",
@@ -221,44 +140,16 @@ export default function HomePage() {
           color: "var(--bg)",
           margin: 0, lineHeight: 1.1,
         }}>
-          Welcome, {firstName}.
+          Tour d&apos;Elegance
         </h1>
-
-        {/* Entry card */}
-        {entry && (
-          <div style={{
-            marginTop: 20,
-            backgroundColor: "rgba(250, 248, 244, 0.06)",
-            border: "1px solid rgba(250, 248, 244, 0.1)",
-            borderRadius: 12,
-            padding: "16px 18px",
-            display: "flex", justifyContent: "space-between", alignItems: "flex-start",
-          }}>
-            <div>
-              <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", color: "var(--accent)", opacity: 0.7, marginBottom: 6 }}>
-                Your Entry
-              </div>
-              <div style={{ fontFamily: "var(--heading-font)", fontSize: 18, color: "var(--bg)", fontWeight: 400, lineHeight: 1.2 }}>
-                {carName}
-              </div>
-              <div style={{ fontSize: 12, color: "var(--bg)", opacity: 0.45, marginTop: 4 }}>
-                {entry.entry_class}
-              </div>
-            </div>
-            <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 16 }}>
-              <div style={{ fontFamily: "var(--heading-font)", fontSize: 32, color: "var(--accent)", lineHeight: 1 }}>
-                #{entry.entry_number}
-              </div>
-              <div style={{
-                fontSize: 9, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase",
-                color: entry.status === "Confirmed" ? "#7EC8A0" : "var(--accent)",
-                marginTop: 4,
-              }}>
-                {entry.status}
-              </div>
-            </div>
-          </div>
-        )}
+        <p style={{
+          fontFamily: "var(--heading-font)",
+          fontSize: 14, fontStyle: "italic",
+          color: "var(--bg)", opacity: 0.45,
+          marginTop: 6,
+        }}>
+          April 24{"\u2013"}26, 2026 {"\u00b7"} La Jolla, California
+        </p>
       </div>
 
       {/* ââ Up Next Card ââ */}
@@ -400,7 +291,6 @@ export default function HomePage() {
               overflow: "hidden",
             }}
           >
-            {/* Subtle texture */}
             <div style={{
               position: "absolute", inset: 0, opacity: 0.04, pointerEvents: "none",
               backgroundImage: "repeating-linear-gradient(-35deg, transparent, transparent 40px, var(--accent) 40px, var(--accent) 41px)",
@@ -418,7 +308,7 @@ export default function HomePage() {
                     {waypoints.length} stops {"\u00b7"} La Jolla to Rancho Santa Fe
                   </div>
                   <div style={{ fontSize: 12, color: "var(--bg)", opacity: 0.4, marginTop: 4 }}>
-                    Saturday, April 25 {"\u00b7"} Departs 7:00 AM
+                    Saturday, April 25 {"\u00b7"} Departs 8:30 AM
                   </div>
                 </div>
                 <div style={{ color: "var(--accent)", flexShrink: 0 }}>
@@ -438,9 +328,10 @@ export default function HomePage() {
         }}>
           Quick Access
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
           {[
             { label: "Navigate", icon: <CompassIcon />, screen: "navigate" },
+            { label: "Schedule", icon: <CalendarIcon />, screen: "schedule" },
             { label: "Program", icon: <BookIcon />, screen: "program" },
           ].map((tile) => (
             <button
@@ -481,7 +372,6 @@ export default function HomePage() {
         </p>
       </div>
 
-      {/* ââ Bottom Navigation ââ */}
       <BottomNav active="home" />
 
       <style>{`
