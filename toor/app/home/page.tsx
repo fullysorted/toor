@@ -10,7 +10,7 @@ import {
 } from "@/lib/store";
 import BottomNav from "@/components/BottomNav";
 
-// âââ Day mapping âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// --- Day mapping -------------------------------------------------------------
 
 const EVENT_DATE_MAP: Record<string, string> = {
   Friday: "2026-04-24",
@@ -30,7 +30,7 @@ function getEventDay(): string {
   return "";
 }
 
-// âââ Icons âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// --- Icons -------------------------------------------------------------------
 
 function ClockIcon({ size = 14 }: { size?: number }) {
   return (
@@ -87,7 +87,7 @@ function CalendarIcon() {
   );
 }
 
-// âââ Home Page ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// --- Home Page ----------------------------------------------------------------
 
 export default function HomePage() {
   const router = useRouter();
@@ -114,7 +114,7 @@ export default function HomePage() {
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "var(--bg)", fontFamily: "var(--body-font)", paddingBottom: 80 }}>
 
-      {/* ââ Top Bar ââ */}
+      {/* -- Top Bar -- */}
       <div style={{
         position: "sticky", top: 0, zIndex: 30,
         backgroundColor: "var(--primary)",
@@ -131,7 +131,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* ââ Hero Header ââ */}
+      {/* -- Hero Header -- */}
       <div style={{
         backgroundColor: "var(--primary)",
         padding: "4px 24px 28px",
@@ -163,7 +163,7 @@ export default function HomePage() {
         </p>
       </div>
 
-      {/* ââ Up Next Card ââ */}
+      {/* -- Up Next Card -- */}
       {nextEvent && (
         <div style={{ padding: "24px 24px 0" }}>
           <div style={{
@@ -214,7 +214,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* ââ Weekend Schedule ââ */}
+      {/* -- Weekend Schedule -- */}
       <div style={{ padding: "28px 24px 0" }}>
         <div style={{
           fontSize: 9, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase",
@@ -285,7 +285,7 @@ export default function HomePage() {
         })}
       </div>
 
-      {/* ââ Tour Route Preview ââ */}
+      {/* -- Tour Route Preview -- */}
       {nextStop && (
         <div style={{ padding: "0 24px 24px" }}>
           <button
@@ -331,7 +331,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* ââ Quick Links ââ */}
+      {/* -- Quick Links -- */}
       <div style={{ padding: "0 24px 28px" }}>
         <div style={{
           fontSize: 9, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase",
@@ -368,7 +368,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* ââ Presented By + Footer ââ */}
+      {/* -- Presented By + Footer -- */}
       <div style={{ textAlign: "center", padding: "20px 24px 8px", borderTop: "1px solid rgba(27, 42, 74, 0.06)" }}>
         <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--text)", opacity: 0.3, marginBottom: 10 }}>
           Presented by
